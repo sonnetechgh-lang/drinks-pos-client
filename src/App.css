@@ -1,0 +1,69 @@
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg-canvas);
+    font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+    color: var(--text-primary);
+  }
+  #root {
+    min-height: 100vh;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+
+  .btn-primary {
+    background-color: var(--primary);
+    border-radius: 16px;
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem 1.25rem;
+    transition: background-color 150ms ease;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--primary-hover);
+  }
+
+  .btn-secondary {
+    background-color: #fff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    color: var(--text-primary);
+    padding: 0.75rem 1.25rem;
+    transition: background-color 150ms ease;
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--bg-canvas);
+  }
+
+  .status-badge {
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1rem;
+    padding: 0.35rem 0.65rem;
+    text-transform: uppercase;
+  }
+}

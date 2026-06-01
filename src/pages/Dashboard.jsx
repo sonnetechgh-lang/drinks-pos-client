@@ -64,8 +64,8 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Stat Cards - 4 Columns */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      {/* Stat Cards - 2x2 on Mobile, 4 Columns on Desktop */}
+      <div className="grid grid-cols-2 gap-4 md:gap-6 xl:grid-cols-4">
         <StatCard label="Total Products" value={productCount} icon={Package} />
         <StatCard label="Low Stock Items" value={lowStockCount} icon={AlertTriangle} colorClass="bg-warning-light text-warning" />
         <StatCard label="Today's Sales" value={`₵ ${todayTotal.toFixed(2)}`} icon={Banknote} />
@@ -202,13 +202,13 @@ export default function Dashboard() {
 
 function StatCard({ label, value, icon: Icon, colorClass = "bg-brand-blue-light text-brand-blue" }) {
   return (
-    <div className="card p-6 flex items-start justify-between">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-text-secondary">{label}</p>
-        <p className="mt-4 text-2xl font-black text-text-primary">{value}</p>
+    <div className="card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-0">
+      <div className="flex-1 min-w-0 text-left">
+        <p className="text-[10px] sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-text-secondary truncate">{label}</p>
+        <p className="mt-1 sm:mt-4 text-lg sm:text-2xl font-black text-text-primary truncate">{value}</p>
       </div>
-      <div className={`p-3 rounded-2xl ${colorClass}`}>
-        <Icon size={24} />
+      <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl shrink-0 self-end sm:self-auto ${colorClass}`}>
+        <Icon size={20} className="sm:w-6 sm:h-6" />
       </div>
     </div>
   )

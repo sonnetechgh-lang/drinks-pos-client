@@ -12,6 +12,12 @@ export const getCustomers = async (search) => {
   return customers
 }
 
+// Dashboard: Top debtors
+export const getTopDebtors = async (limit = 5) => {
+  const response = await client.get('/v1/customers/top-debtors', { params: { limit } })
+  return response.data.data
+}
+
 export const updateCustomer = async (id, customerData) => {
   const response = await client.patch(`/v1/customers/${id}`, customerData)
   return response.data.data

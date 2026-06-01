@@ -23,6 +23,18 @@ export const getProducts = async () => {
   return products
 }
 
+// Dashboard: Product count
+export const getProductCount = async () => {
+  const response = await client.get('/v1/products/count')
+  return response.data.data
+}
+
+// Dashboard: Low stock items
+export const getLowStockProducts = async (limit = 8) => {
+  const response = await client.get('/v1/products/low-stock', { params: { limit } })
+  return response.data.data
+}
+
 export const getCategories = async () => {
   const response = await client.get('/v1/categories')
   return response.data.data

@@ -1,17 +1,43 @@
 import { useState, useEffect } from 'react'
-import { getSalesSummary } from '../api/sales'
-import { TrendingUp, ChevronRight, Star } from 'lucide-react'
+import { getTodayTotal, getBestSellingProducts, getTodaySales, getOutstandingCredit } from '../api/sales'
+import { getProductCount, getLowStockProducts } from '../api/products'
+import { getTopDebtors } from '../api/customers'
+import { TrendingUp, ChevronRight, AlertCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function Dashboard() {
-  const [summary, setSummary] = useState(null)
+  const [todayTotal, setTodayTotal] = useState(0)
+  const [productCount, setProductCount] = useState(0)
+  const [lowStockCount, setLowStockCount] = useState(0)
+  const [outstandingCredit, setOutstandingCredit] = useState(0)
+  const [bestSellingProducts, setBestSellingProducts] = useState([])
+  const [lowStockProducts, setLowStockProducts] = useState([])
+  const [todaySales, setTodaySales] = useState([])
+  const [topDebtors, setTopDebtors] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [summaryData] = await Promise.all([getSalesSummary()])
-        setSummary(summaryData)
+        const [todayData, countData, lowStockData, creditData, bestData, lowData, salesData, debtorsData] = await Promise.all([
+          getTodayTotal(),
+          getProductCount(),
+          getLowStockProducts(100),
+          getOutstandingCredit(),
+          getBestSellingProducts(5),
+          getLowStockProducts(8),
+          getTodaySales(5),
+          getTopDebtors(5)
+        ])
+
+        setTodayTotal(todayData?.total || 0)
+        setProductCount(countData?.count || 0)
+        setLowStockCount(Array.isArray(lowStockData) ? lowStockData.length : 0)
+        setOutstandingCredit(creditData?.outstanding || 0)
+        setBestSellingProducts(Array.isArray(bestData) ? bestData : [])
+        setLowStockProducts(Array.isArray(lowData) ? lowData : [])
+        setTodaySales(Array.isArray(salesData) ? salesData : [])
+        setTopDebtors(Array.isArray(debtorsData) ? debtorsData : [])
       } catch (error) {
         console.error('Failed to fetch dashboard data', error)
       } finally {
@@ -22,14 +48,6 @@ export default function Dashboard() {
   }, [])
 
   if (loading) return <div className="p-8 text-center text-text-secondary">Loading dashboard...</div>
-  if (!summary) return <div className="p-8 text-center text-danger">Failed to load dashboard data.</div>
-
-  const { revenue, topProducts, repeatCustomerRate, totalCustomers, orderCount } = summary
-  const orders = orderCount ?? 0
-  const customers = totalCustomers ?? 0
-  const repeatRate = repeatCustomerRate ?? 68
-  const chartItems = topProducts.slice(0, 5)
-  const maxQuantity = Math.max(...chartItems.map((product) => product.quantity), 1)
 
   return (
     <div className="max-w-7xl mx-auto min-h-full space-y-8">
@@ -46,90 +64,135 @@ export default function Dashboard() {
         </Link>
       </div>
 
+      {/* Stat Cards - 4 Columns */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Sales Revenue" value={`₵ ${revenue.month.toFixed(2)}`} trend="+12.4%" />
-        <StatCard label="Weekly Revenue" value={`₵ ${revenue.week.toFixed(2)}`} trend="+8.9%" />
-        <StatCard label="Transactions" value={orders} trend="+5.2%" />
-        <StatCard label="Accounts" value={customers} trend="+3.6%" />
+        <StatCard label="Total Products" value={productCount} icon="📦" />
+        <StatCard label="Low Stock Items" value={lowStockCount} icon="⚠️" />
+        <StatCard label="Today's Sales" value={`₵ ${todayTotal.toFixed(2)}`} icon="💰" />
+        <StatCard label="Outstanding Credit" value={`₵ ${outstandingCredit.toFixed(2)}`} icon="💳" />
       </div>
 
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        {/* Left Section - 8 columns */}
         <section className="xl:col-span-8 space-y-6">
+          {/* Best Selling Products */}
           <div className="card p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-text-secondary">Sales Revenue</p>
-                <h2 className="mt-3 text-3xl font-black text-text-primary">₵ {revenue.month.toFixed(2)}</h2>
-                <p className="mt-2 max-w-xl text-sm text-text-secondary">Review sales revenue and beverage performance in one place.</p>
-              </div>
-              <div className="rounded-3xl border border-border bg-brand-blue-light px-4 py-3 text-sm font-semibold text-brand-blue">
-                <span className="inline-flex items-center gap-2"> <TrendingUp size={16} /> +14.2% vs last month</span>
-              </div>
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-text-primary">Best Selling Products</h2>
+              <p className="text-sm text-text-secondary">Top performing products by quantity sold</p>
             </div>
-            <div className="mt-8 rounded-3xl bg-bg-canvas p-6">
-              <div className="h-48 rounded-3xl bg-white p-4 shadow-inner">
-                {chartItems.length > 0 ? (
-                  <div className="flex h-full items-end gap-3">
-                    {chartItems.map((product) => (
-                      <div key={product.name} className="flex min-w-0 flex-1 flex-col items-center gap-2">
-                        <div className="flex h-32 w-full items-end rounded-2xl bg-brand-blue-light/60 p-1">
-                          <div
-                            className="w-full rounded-xl bg-brand-blue"
-                            style={{ height: `${Math.max(12, (product.quantity / maxQuantity) * 100)}%` }}
-                          />
-                        </div>
-                        <p className="w-full truncate text-center text-xs font-semibold text-text-secondary">{product.name}</p>
+            {bestSellingProducts.length > 0 ? (
+              <div className="space-y-3">
+                {bestSellingProducts.map((product, index) => (
+                  <div key={product.productId || index} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-3 border border-border">
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-blue-light text-brand-blue text-xs font-bold">
+                        {index + 1}
+                      </span>
+                      <div className="flex-1">
+                        <p className="font-semibold text-text-primary text-sm">{product.name}</p>
+                        <p className="text-xs text-text-secondary">{product.quantity} units sold</p>
                       </div>
-                    ))}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-text-primary text-sm">₵ {product.revenue?.toFixed(2) || 0}</p>
+                    </div>
                   </div>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm font-semibold text-text-secondary">
-                    No sales trend data yet.
-                  </div>
-                )}
+                ))}
               </div>
-            </div>
+            ) : (
+              <p className="text-center text-text-secondary text-sm">No sales data available</p>
+            )}
           </div>
 
+          {/* Low Stock Alerts */}
           <div className="card p-6">
-            <div className="flex items-center justify-between gap-4">
+            <div className="mb-4 flex items-center gap-2">
+              <AlertCircle size={20} className="text-warning" />
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-text-secondary">Best Selling Beverages</p>
-                <p className="mt-2 text-sm text-text-secondary">Top performing SKUs for the current period.</p>
+                <h2 className="text-lg font-bold text-text-primary">Low Stock Alerts</h2>
+                <p className="text-sm text-text-secondary">Products below threshold</p>
               </div>
-              <span className="status-badge bg-brand-blue-light text-brand-blue">Top 5</span>
             </div>
-
-            <div className="mt-6 space-y-4">
-              {topProducts.map((product, index) => (
-                <div key={index} className="flex items-center justify-between rounded-3xl bg-gray-50 px-4 py-4">
-                  <div>
-                    <p className="font-semibold text-text-primary">{product.name}</p>
-                    <p className="text-sm text-text-secondary">{product.quantity} sold</p>
+            {lowStockProducts.length > 0 ? (
+              <div className="space-y-2">
+                {lowStockProducts.map((product) => (
+                  <div key={product.id} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-3 border border-warning/20">
+                    <div>
+                      <p className="font-semibold text-text-primary text-sm">{product.name}</p>
+                      <p className="text-xs text-text-secondary">{product.stock} in stock</p>
+                    </div>
+                    <span className="px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-semibold">
+                      {product.stock} units
+                    </span>
                   </div>
-                  <div className="rounded-full bg-brand-blue-light px-3 py-1 text-sm font-semibold text-brand-blue">{product.quantity}</div>
-                </div>
-              ))}
-              {topProducts.length === 0 && <p className="text-center text-text-secondary">No sales data available.</p>}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-text-secondary text-sm">No low stock items</p>
+            )}
           </div>
         </section>
 
+        {/* Right Section - 4 columns */}
         <aside className="xl:col-span-4 space-y-6">
+          {/* Today's Sales */}
           <div className="card p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Repeat Customer Rate</p>
-                <h3 className="mt-3 text-3xl font-black text-text-primary">{repeatRate}%</h3>
-              </div>
-              <Star size={28} className="text-brand-blue" />
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-text-primary">Today's Sales</h2>
+              <p className="text-xs text-text-secondary">Latest transactions</p>
             </div>
-            <div className="mt-6 h-40 rounded-[28px] bg-success-light p-4">
-              <div className="h-4 rounded-full bg-brand-blue-light">
-                <div className="h-4 rounded-full bg-brand-blue" style={{ width: `${repeatRate}%` }} />
+            {todaySales.length > 0 ? (
+              <div className="space-y-2">
+                {todaySales.map((sale, index) => (
+                  <div key={sale.id || index} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-2 text-xs border border-border">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-text-primary truncate">{sale.customer?.name || 'Cash Sale'}</p>
+                      <p className="text-text-secondary">{new Date(sale.createdAt).toLocaleTimeString()}</p>
+                    </div>
+                    <p className="font-semibold text-brand-blue ml-2">₵ {sale.total?.toFixed(2) || 0}</p>
+                  </div>
+                ))}
               </div>
-              <p className="mt-4 text-sm text-text-secondary">Repeat customer percentage based on current data.</p>
+            ) : (
+              <p className="text-center text-text-secondary text-sm">No sales today</p>
+            )}
+            <Link
+              to="/reports"
+              className="mt-4 w-full inline-flex items-center justify-center gap-1 rounded-2xl bg-brand-blue-light px-3 py-2 text-xs font-semibold text-brand-blue hover:bg-brand-blue/10 transition"
+            >
+              View All <ChevronRight size={14} />
+            </Link>
+          </div>
+
+          {/* Top Debtors */}
+          <div className="card p-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-text-primary">Top Debtors</h2>
+              <p className="text-xs text-text-secondary">Highest outstanding credit</p>
             </div>
+            {topDebtors.length > 0 ? (
+              <div className="space-y-2">
+                {topDebtors.map((customer) => (
+                  <div key={customer.id} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-2 text-xs border border-border">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-text-primary truncate">{customer.name}</p>
+                      <p className="text-text-secondary">{customer.phone || 'No phone'}</p>
+                    </div>
+                    <p className="font-semibold text-danger ml-2 whitespace-nowrap">₵ {customer.outstandingBalance?.toFixed(2) || 0}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-text-secondary text-sm">No outstanding credit</p>
+            )}
+            <Link
+              to="/customers"
+              className="mt-4 w-full inline-flex items-center justify-center gap-1 rounded-2xl bg-brand-blue-light px-3 py-2 text-xs font-semibold text-brand-blue hover:bg-brand-blue/10 transition"
+            >
+              View All <ChevronRight size={14} />
+            </Link>
           </div>
         </aside>
       </div>
@@ -137,15 +200,14 @@ export default function Dashboard() {
   )
 }
 
-function StatCard({ label, value, trend }) {
+function StatCard({ label, value, icon }) {
   return (
-    <div className="card p-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="card p-6 flex items-start justify-between">
+      <div>
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-text-secondary">{label}</p>
-        <span className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-blue">{trend}</span>
+        <p className="mt-4 text-2xl font-black text-text-primary">{value}</p>
       </div>
-      <p className="mt-6 text-3xl font-black text-text-primary">{value}</p>
-      <p className="mt-3 text-sm text-text-secondary">Performance compared to previous period.</p>
+      <span className="text-4xl">{icon}</span>
     </div>
   )
 }

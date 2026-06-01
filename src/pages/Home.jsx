@@ -232,7 +232,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-full flex-col pb-28 xl:pb-0">
       <div className={`rounded-3xl border border-border px-4 py-3 text-sm font-semibold mb-6 ${online ? 'bg-success-light text-success' : 'bg-warning-light text-warning'}`}>
         <div className="flex items-center justify-center gap-2">
           {online ? <Wifi size={16} /> : <WifiOff size={16} />}
@@ -546,6 +546,22 @@ export default function Home() {
           </div>
         </aside>
       </main>
+
+      <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white px-4 py-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-text-secondary">Total</p>
+            <p className="mt-1 text-lg font-black text-text-primary">₵ {cartTotal.toFixed(2)}</p>
+          </div>
+          <button
+            onClick={handleCheckout}
+            disabled={cart.length === 0}
+            className="rounded-3xl bg-brand-blue px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
+          >
+            Complete Sale
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,18 +1,48 @@
-import { useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
-import { Bell, Search, UserCircle } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Bell, Search, UserCircle, Menu } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import Sidebar from './Sidebar'
+
+const pageTitles = {
+  '/': 'Home',
+  '/pos': 'Point of Sale',
+  '/dashboard': 'Dashboard',
+  '/products': 'Products',
+  '/customers': 'Customers',
+  '/settings': 'Settings',
+}
 
 export default function Layout() {
   const { user } = useAuth()
   const [search, setSearch] = useState('')
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const location = useLocation()
+
+  const pageTitle = useMemo(() => pageTitles[location.pathname] || 'Palace Line', [location.pathname])
+
+  const toggleSidebar = () => setMobileSidebarOpen((open) => !open)
 
   return (
     <div className="min-h-screen bg-bg-canvas text-text-primary">
-      <Sidebar />
+      <Sidebar isOpen={mobileSidebarOpen} toggleSidebar={toggleSidebar} />
 
       <div className="lg:ml-60 flex min-h-0 flex-col">
+        <header className="fixed inset-x-0 top-0 z-30 border-b border-border bg-white/95 backdrop-blur lg:hidden">
+          <div className="mx-auto flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+            <button onClick={toggleSidebar} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-white text-text-secondary transition hover:bg-gray-50">
+              <Menu size={20} />
+            </button>
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.28em] text-text-secondary">Welcome back</p>
+              <h1 className="truncate text-lg font-black text-text-primary">{pageTitle}</h1>
+            </div>
+            <Link to="/settings" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-gray-50">
+              <UserCircle size={18} className="text-brand-blue" />
+            </Link>
+          </div>
+        </header>
+
         <header className="fixed inset-x-0 top-0 z-20 hidden border-b border-border bg-white/95 backdrop-blur lg:left-60 lg:right-0 lg:block">
           <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
             <div className="flex-1 min-w-0">
@@ -42,7 +72,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto pt-20 pb-8 px-4 sm:px-6 lg:px-8 lg:pt-20">
+        <main className="flex-1 overflow-auto pt-24 pb-8 px-4 sm:px-6 lg:px-8 lg:pt-20">
           <Outlet />
         </main>
       </div>

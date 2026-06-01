@@ -167,7 +167,7 @@ export default function CustomersPage() {
           </div>
 
           <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="hidden sm:block overflow-x-auto">
               <table className="min-w-full text-left">
                 <thead className="bg-brand-blue-light/40 text-xs uppercase tracking-[0.18em] text-text-secondary">
                   <tr>
@@ -234,6 +234,66 @@ export default function CustomersPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="space-y-4 sm:hidden px-4 py-4">
+              {loading ? (
+                <div className="rounded-3xl border border-border bg-gray-50 p-6 text-center text-text-secondary">Loading customers...</div>
+              ) : customers.length === 0 ? (
+                <div className="rounded-3xl border border-border bg-gray-50 p-6 text-center text-text-secondary">No customers recorded yet.</div>
+              ) : (
+                customers.map((customer) => (
+                  <div key={customer.id} className="rounded-3xl border border-border bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-text-primary">{customer.name}</p>
+                        <p className="mt-1 text-xs text-text-secondary">{customer.clientId ? customer.clientId : `CUST-${customer.id.slice(0, 8).toUpperCase()}`}</p>
+                      </div>
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${customer.active ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`}>
+                        {customer.active ? 'Active' : 'Blocked'}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-3 text-sm text-text-secondary">
+                      <div>
+                        <p className="font-semibold text-text-primary">Contact</p>
+                        <p>{customer.phone || '-'}</p>
+                      </div>
+                      {customer.notes && (
+                        <div>
+                          <p className="font-semibold text-text-primary">Notes</p>
+                          <p>{customer.notes}</p>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-gray-50 p-3">
+                          <p className="text-xs uppercase tracking-[0.18em] text-text-secondary">Credit Limit</p>
+                          <p className="mt-2 font-semibold text-text-primary">GH₵ {Number(customer.creditLimit || 0).toFixed(2)}</p>
+                        </div>
+                        <div className="rounded-2xl bg-gray-50 p-3">
+                          <p className="text-xs uppercase tracking-[0.18em] text-text-secondary">Balance</p>
+                          <p className="mt-2 font-semibold text-text-primary">GH₵ {Number(customer.balance || 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditClick(customer)}
+                        className="flex-1 rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(customer)}
+                        className="flex-1 rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
+                      >
+                        {customer.active ? 'Block' : 'Unblock'}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </section>

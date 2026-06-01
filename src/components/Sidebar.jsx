@@ -6,10 +6,8 @@ import {
   Package,
   Settings,
   LogOut,
-  Menu,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
 
 const navSections = [
   {
@@ -44,9 +42,8 @@ const navSections = [
   },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, toggleSidebar }) {
   const { user, logout } = useAuth()
-  const [isOpen, setIsOpen] = useState(false)
   const roleBadge = user?.role === 'ADMIN'
     ? 'bg-brand-blue-light text-brand-blue'
     : 'bg-warning-light text-warning'
@@ -56,27 +53,13 @@ export default function Sidebar() {
     items: section.items.filter((item) => item.roles.includes(user?.role)),
   })).filter((section) => section.items.length > 0)
 
-  const toggleSidebar = () => setIsOpen(!isOpen)
-
   return (
     <>
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 border-b border-border bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 items-center justify-between px-4">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-text-secondary">Palace Lane</p>
-            <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Enterprise</p>
-          </div>
-          <button onClick={toggleSidebar} className="text-text-primary">
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-      </div>
-
       {isOpen && (
         <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={toggleSidebar} />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-border bg-white transition-transform duration-300 lg:fixed lg:inset-y-0 lg:left-0 lg:translate-x-0 lg:w-60 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-x-0 top-16 bottom-0 z-50 w-72 transform border-r border-border bg-white transition-transform duration-300 lg:fixed lg:inset-y-0 lg:top-0 lg:left-0 lg:translate-x-0 lg:w-60 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="hidden lg:flex lg:flex-col lg:h-full">
           <div className="px-6 py-7 border-b">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-secondary">Palace Lane</p>
@@ -92,8 +75,8 @@ export default function Sidebar() {
                     <NavLink
                       key={item.path}
                       to={item.path}
-                      onClick={() => setIsOpen(false)}
-                    className={({ isActive }) => `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? 'bg-brand-blue-light text-brand-blue shadow-sm border-l-4 border-brand-blue' : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'}`}
+                      onClick={toggleSidebar}
+                      className={({ isActive }) => `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? 'bg-brand-blue-light text-brand-blue shadow-sm border-l-4 border-brand-blue' : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'}`}
                     >
                       {item.icon}
                       {item.name}
@@ -126,13 +109,13 @@ export default function Sidebar() {
           </div>
         </div>
 
-        <div className="lg:hidden px-4 pt-20 pb-6">
+        <div className="lg:hidden px-4 pt-6 pb-6">
           <nav className="space-y-2">
             {filteredSections.flatMap((section) => section.items).map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={() => setIsOpen(false)}
+                onClick={toggleSidebar}
                 className={({ isActive }) => `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? 'bg-brand-blue-light text-brand-blue' : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'}`}
               >
                 {item.icon}

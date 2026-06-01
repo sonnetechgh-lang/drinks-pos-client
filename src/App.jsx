@@ -3,6 +3,7 @@ import HomePage from './pages/Home.jsx'
 import LoginPage from './pages/Login.jsx'
 import ProductsPage from './pages/Products.jsx'
 import DashboardPage from './pages/Dashboard.jsx'
+import ReportsPage from './pages/Reports.jsx'
 import CustomersPage from './pages/Customers.jsx'
 import SettingsPage from './pages/Settings.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
@@ -32,6 +33,7 @@ function App() {
           
           <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="reports" element={<ReportsPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

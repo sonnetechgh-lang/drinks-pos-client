@@ -7,6 +7,7 @@ import {
   Settings,
   LogOut,
   X,
+  BarChart3,
 } from 'lucide-react'
 
 const navSections = [
@@ -14,6 +15,7 @@ const navSections = [
     label: 'Overview',
     items: [
       { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['ADMIN'] },
+      { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, roles: ['ADMIN'] },
     ],
   },
   {
@@ -25,7 +27,7 @@ const navSections = [
   {
     label: 'Inventory',
     items: [
-      { name: 'Beverages', path: '/products', icon: <Package size={20} />, roles: ['ADMIN'] },
+      { name: 'Products', path: '/products', icon: <Package size={20} />, roles: ['ADMIN'] },
     ],
   },
   {

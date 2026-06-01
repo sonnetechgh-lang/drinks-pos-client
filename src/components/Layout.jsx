@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Bell, Search, UserCircle, Menu } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
 import Sidebar from './Sidebar'
 
 const pageTitles = {
@@ -15,6 +16,7 @@ const pageTitles = {
 
 export default function Layout() {
   const { user } = useAuth()
+  const { theme } = useTheme()
   const [search, setSearch] = useState('')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const location = useLocation()
@@ -61,8 +63,8 @@ export default function Layout() {
             </div>
 
             <div className="flex items-center gap-3">
-              <button className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-white text-text-secondary hover:bg-brand-blue-light hover:text-brand-blue transition">
-                <Bell size={18} />
+              <button className={`hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition ${theme === 'dark' ? 'border-slate-700 bg-slate-900 text-white hover:bg-slate-800' : 'border-border bg-white text-text-secondary hover:bg-brand-blue-light hover:text-brand-blue'}`}>
+                <Bell size={18} className="text-current" />
               </button>
               <Link to="/settings" className="flex items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2 hover:shadow-sm transition">
                 <UserCircle size={20} className="text-brand-blue" />

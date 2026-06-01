@@ -55,7 +55,7 @@ export default function Layout() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search beverages, transaction ID, brand..."
+                placeholder="Search products, transaction ID, brand..."
                 className="w-full border-0 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-secondary"
               />
             </div>

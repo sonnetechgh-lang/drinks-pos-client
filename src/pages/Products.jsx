@@ -125,7 +125,7 @@ export default function ProductsPage() {
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this beverage?')) {
+    if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         await deleteProduct(id)
         fetchData()
@@ -142,13 +142,13 @@ export default function ProductsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Inventory</p>
-          <h1 className="mt-3 text-3xl font-black text-text-primary">Beverages</h1>
+          <h1 className="mt-3 text-3xl font-black text-text-primary">Products</h1>
         </div>
         <button
           onClick={() => handleOpenModal()}
           className="inline-flex items-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-brand-blue/20 transition hover:bg-brand-blue-dark"
         >
-          <Plus size={18} /> Add Beverage
+          <Plus size={18} /> Add Product
         </button>
       </div>
 

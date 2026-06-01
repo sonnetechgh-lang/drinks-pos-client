@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 export default function Settings() {
   const [settings, setSettings] = useState({
     shopName: 'Palace Line Enterprise',
-    address: '123 Beverage St, Accra, Ghana',
+    address: '123 Product St, Accra, Ghana',
     footerText: 'Thank you for your business!',
     currency: 'GH₵',
   })

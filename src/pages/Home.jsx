@@ -250,7 +250,7 @@ export default function Home() {
               <p className="mt-4 text-xl font-black text-text-primary">{user?.name}</p>
             </div>
             <div className="card p-5">
-              <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Beverages</p>
+              <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Products</p>
               <p className="mt-4 text-xl font-black text-text-primary">{products.length}</p>
             </div>
             <div className="card p-5">
@@ -263,7 +263,7 @@ export default function Home() {
             <div className="flex flex-col gap-4 border-b border-border bg-brand-blue-light/40 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-black text-text-primary">Product Catalog</h2>
-                <p className="mt-1 text-sm text-text-secondary">Tap a beverage to add it to the cart.</p>
+                <p className="mt-1 text-sm text-text-secondary">Tap a product to add it to the cart.</p>
               </div>
               <div className="relative w-full max-w-md">
                 <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
@@ -271,7 +271,7 @@ export default function Home() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search beverages or brand"
+                  placeholder="Search products or brand"
                   className="w-full rounded-full border border-border bg-white py-3 pl-12 pr-4 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
                 />
               </div>
@@ -328,7 +328,7 @@ export default function Home() {
               {filteredProducts.length === 0 && (
                 <div className="mt-10 flex min-h-[240px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-gray-50 p-10 text-center text-text-secondary">
                   <Package size={64} className="text-gray-300" />
-                  <p className="mt-4 text-base font-semibold">No beverages match your search.</p>
+                  <p className="mt-4 text-base font-semibold">No products match your search.</p>
                 </div>
               )}
             </div>
@@ -386,7 +386,7 @@ export default function Home() {
               ) : (
                 <div className="rounded-3xl border border-dashed border-border bg-gray-50 p-8 text-center text-text-secondary">
                   <p className="text-base font-semibold">Your cart is empty.</p>
-                  <p className="mt-2 text-sm">Add beverages to start a transaction.</p>
+                  <p className="mt-2 text-sm">Add products to start a transaction.</p>
                 </div>
               )}
             </div>

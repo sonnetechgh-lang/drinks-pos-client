@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getSalesSummary } from '../api/sales'
-import { TrendingUp, ChevronRight, BarChart3, Star, Sparkles } from 'lucide-react'
+import { TrendingUp, ChevronRight, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function Dashboard() {
@@ -119,30 +119,6 @@ export default function Dashboard() {
           <div className="card p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Most Active Day</p>
-                <h3 className="mt-3 text-2xl font-black text-text-primary">Tuesday</h3>
-              </div>
-              <BarChart3 size={28} className="text-brand-blue" />
-            </div>
-            <div className="mt-6 grid grid-cols-3 gap-2 text-center rounded-3xl bg-brand-blue-light/80 p-3 text-sm font-semibold text-brand-blue">
-              <div>
-                <span className="block text-2xl">8,162</span>
-                <span className="text-text-secondary">Sales</span>
-              </div>
-              <div>
-                <span className="block text-2xl">18%</span>
-                <span className="text-text-secondary">Change</span>
-              </div>
-              <div>
-                <span className="block text-2xl">24h</span>
-                <span className="text-text-secondary">Trend</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
                 <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Repeat Customer Rate</p>
                 <h3 className="mt-3 text-3xl font-black text-text-primary">{repeatRate}%</h3>
               </div>
@@ -152,21 +128,8 @@ export default function Dashboard() {
               <div className="h-4 rounded-full bg-brand-blue-light">
                 <div className="h-4 rounded-full bg-brand-blue" style={{ width: `${repeatRate}%` }} />
               </div>
-              <p className="mt-4 text-sm text-text-secondary">On track for 80% target.</p>
+              <p className="mt-4 text-sm text-text-secondary">Repeat customer percentage based on current data.</p>
             </div>
-          </div>
-
-          <div className="card p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">AI Assistant</p>
-                <h3 className="mt-3 text-lg font-black text-text-primary">Insights & quick actions</h3>
-              </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-brand-blue text-white">
-                <Sparkles size={24} />
-              </div>
-            </div>
-            <p className="mt-4 text-sm text-text-secondary">Ask the assistant to analyze trends, find top categories, or review stock alerts.</p>
           </div>
         </aside>
       </div>

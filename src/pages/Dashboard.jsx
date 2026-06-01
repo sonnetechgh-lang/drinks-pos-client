@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getTodayTotal, getBestSellingProducts, getTodaySales, getOutstandingCredit } from '../api/sales'
 import { getProductCount, getLowStockProducts } from '../api/products'
 import { getTopDebtors } from '../api/customers'
-import { TrendingUp, ChevronRight, AlertCircle } from 'lucide-react'
+import { TrendingUp, ChevronRight, AlertCircle, Package, AlertTriangle, Banknote, CreditCard } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function Dashboard() {
@@ -66,10 +66,10 @@ export default function Dashboard() {
 
       {/* Stat Cards - 4 Columns */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total Products" value={productCount} icon="📦" />
-        <StatCard label="Low Stock Items" value={lowStockCount} icon="⚠️" />
-        <StatCard label="Today's Sales" value={`₵ ${todayTotal.toFixed(2)}`} icon="💰" />
-        <StatCard label="Outstanding Credit" value={`₵ ${outstandingCredit.toFixed(2)}`} icon="💳" />
+        <StatCard label="Total Products" value={productCount} icon={Package} />
+        <StatCard label="Low Stock Items" value={lowStockCount} icon={AlertTriangle} colorClass="bg-warning-light text-warning" />
+        <StatCard label="Today's Sales" value={`₵ ${todayTotal.toFixed(2)}`} icon={Banknote} />
+        <StatCard label="Outstanding Credit" value={`₵ ${outstandingCredit.toFixed(2)}`} icon={CreditCard} colorClass="bg-danger-light text-danger" />
       </div>
 
       {/* Main Content Grid */}
@@ -200,14 +200,16 @@ export default function Dashboard() {
   )
 }
 
-function StatCard({ label, value, icon }) {
+function StatCard({ label, value, icon: Icon, colorClass = "bg-brand-blue-light text-brand-blue" }) {
   return (
     <div className="card p-6 flex items-start justify-between">
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-text-secondary">{label}</p>
         <p className="mt-4 text-2xl font-black text-text-primary">{value}</p>
       </div>
-      <span className="text-4xl">{icon}</span>
+      <div className={`p-3 rounded-2xl ${colorClass}`}>
+        <Icon size={24} />
+      </div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Edit, Plus, Trash2, X } from 'lucide-react'
+import { CheckCircle, Edit, Plus, Trash2, UserPen, X } from 'lucide-react'
 import { defaultReceiptSettings, legacyReceiptDefaults } from '../config/business'
 import { useAuth } from '../hooks/useAuth'
 import { createUser, deleteUser, getUsers, updateMyProfile, updateUser } from '../api/users'
@@ -31,6 +31,7 @@ export default function Settings() {
   const [businessMessage, setBusinessMessage] = useState('')
   const [accountMessage, setAccountMessage] = useState('')
   const [cashierMessage, setCashierMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   const isAdmin = user?.role === 'ADMIN'
 
@@ -76,6 +77,7 @@ export default function Settings() {
     event.preventDefault()
     localStorage.setItem('palace-line-settings', JSON.stringify(settings))
     setBusinessMessage('Business details saved.')
+    setSuccessMessage('Business details saved successfully.')
   }
 
   const handleAccountSave = async (event) => {
@@ -84,6 +86,13 @@ export default function Settings() {
 
     if (accountForm.newPassword && accountForm.newPassword !== accountForm.confirmPassword) {
       setAccountMessage('New passwords do not match.')
+      return
+    }
+
+    const emailChanged = accountForm.email.trim().toLowerCase() !== String(user?.email || '').toLowerCase()
+    const passwordChanged = Boolean(accountForm.newPassword)
+    if ((emailChanged || passwordChanged) && !accountForm.currentPassword) {
+      setAccountMessage('Enter your current password to change email or password.')
       return
     }
 
@@ -104,6 +113,7 @@ export default function Settings() {
       }))
       setAccountMessage('Login details updated.')
       setAccountModalOpen(false)
+      setSuccessMessage('Login credentials updated successfully.')
       fetchUsers()
     } catch (error) {
       setAccountMessage(error.response?.data?.message || 'Failed to update login details.')
@@ -153,6 +163,7 @@ export default function Settings() {
 
       closeCashierModal()
       setCashierMessage(editingCashier ? 'Cashier updated.' : 'Cashier added.')
+      setSuccessMessage(editingCashier ? 'Cashier updated successfully.' : 'Cashier added successfully.')
       fetchUsers()
     } catch (error) {
       setCashierMessage(error.response?.data?.message || 'Failed to save cashier.')
@@ -165,6 +176,7 @@ export default function Settings() {
     try {
       await deleteUser(cashier.id)
       setCashierMessage('Cashier removed.')
+      setSuccessMessage('Cashier removed successfully.')
       fetchUsers()
     } catch (error) {
       setCashierMessage(error.response?.data?.message || 'Failed to remove cashier.')
@@ -173,9 +185,39 @@ export default function Settings() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Configuration</p>
-        <h1 className="mt-3 text-3xl font-black text-text-primary">General Settings</h1>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Configuration</p>
+          <h1 className="mt-3 text-3xl font-black text-text-primary">General Settings</h1>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setAccountMessage('')
+              setAccountForm({
+                ...emptyAccountForm,
+                name: user?.name || '',
+                email: user?.email || '',
+              })
+              setAccountModalOpen(true)
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-white px-5 py-3 text-sm font-bold text-text-primary transition hover:bg-gray-50"
+          >
+            <UserPen size={18} /> Update Login Credentials
+          </button>
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => openCashierModal()}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark"
+            >
+              <Plus size={18} /> Add Cashier
+            </button>
+          )}
+        </div>
       </div>
 
       <section className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
@@ -270,17 +312,6 @@ export default function Settings() {
           </div>
 
           {accountMessage && <p className="text-sm font-semibold text-text-secondary">{accountMessage}</p>}
-
-          <button
-            type="button"
-            onClick={() => {
-              setAccountMessage('')
-              setAccountModalOpen(true)
-            }}
-            className="w-full rounded-3xl bg-brand-blue px-6 py-4 text-sm font-bold text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-blue-dark transition"
-          >
-            Update Login Credentials
-          </button>
         </section>
       </section>
 
@@ -291,13 +322,6 @@ export default function Settings() {
               <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Staff</p>
               <h2 className="mt-2 text-xl font-black text-text-primary">Cashier Management</h2>
             </div>
-            <button
-              type="button"
-              onClick={() => openCashierModal()}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark"
-            >
-              <Plus size={18} /> Add Cashier
-            </button>
           </div>
 
           {cashierMessage && <p className="px-6 pt-4 text-sm font-semibold text-text-secondary">{cashierMessage}</p>}
@@ -527,6 +551,25 @@ export default function Settings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[2rem] bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-light text-success">
+              <CheckCircle size={28} />
+            </div>
+            <h2 className="mt-4 text-xl font-black text-text-primary">Success</h2>
+            <p className="mt-2 text-sm text-text-secondary">{successMessage}</p>
+            <button
+              type="button"
+              onClick={() => setSuccessMessage('')}
+              className="mt-6 w-full rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

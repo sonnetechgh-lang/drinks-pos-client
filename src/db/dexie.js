@@ -7,7 +7,7 @@ db.version(1).stores({
   syncQueue: '++id, clientId, createdAt, synced'
 })
 
-db.version(2).stores({
+db.version(3).stores({
   products: 'id, name, categoryId',
   customers: 'id, clientId, name, phone, active, synced',
   syncQueue: '++id, clientId, createdAt, synced, type'

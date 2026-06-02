@@ -24,6 +24,7 @@ export default function Home() {
   const [paymentType, setPaymentType] = useState('FULL')
   const [paymentMethod, setPaymentMethod] = useState('CASH')
   const [paidAmount, setPaidAmount] = useState('')
+  const [discount, setDiscount] = useState('')
   const [momoReference, setMomoReference] = useState('')
 
   const products = useLiveQuery(() => db.products.toArray()) || []
@@ -162,7 +163,8 @@ export default function Home() {
     setCart((prev) => prev.filter((item) => !(item.id === id && item.packageOptionId === packageOptionId)))
   }
 
-  const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart])
+  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart])
+  const cartTotal = useMemo(() => Math.max(0, cartSubtotal - parseAmount(discount)), [cartSubtotal, discount])
 
   const selectedCustomer = useMemo(
     () => customers.find((customer) => customer.id === selectedCustomerId),
@@ -240,6 +242,7 @@ export default function Home() {
     const sale = {
       clientId: crypto.randomUUID(),
       total: cartTotal,
+      discount: parseAmount(discount),
       amountPaid: paid,
       creditAmount,
       paymentStatus,
@@ -458,11 +461,19 @@ export default function Home() {
             <div className="mt-6 rounded-3xl border border-border bg-white p-5">
               <div className="flex items-center justify-between text-sm text-text-secondary">
                 <span>Subtotal</span>
-                <span className="font-semibold text-text-primary">GH₵ {cartTotal.toFixed(2)}</span>
+                <span className="font-semibold text-text-primary">GH₵ {cartSubtotal.toFixed(2)}</span>
               </div>
               <div className="mt-3 flex items-center justify-between text-sm text-text-secondary">
-                <span>Discount</span>
-                <span className="font-semibold text-text-primary">GH₵ 0.00</span>
+                <span className="flex items-center gap-1">Discount <span className="text-[10px] bg-brand-blue-light text-brand-blue px-1 rounded">GH₵</span></span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-24 rounded-lg border border-border bg-gray-50 px-2 py-1 text-right text-sm font-semibold text-text-primary outline-none focus:border-brand-blue"
+                />
               </div>
               <div className="mt-4 border-t border-border pt-4 flex items-center justify-between text-lg font-black text-text-primary">
                 <span>Total</span>

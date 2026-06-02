@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { getSalesReport, getBestSellingProducts } from '../api/sales'
 import { getLowStockProducts } from '../api/products'
-import { ChevronRight, Download, Calendar } from 'lucide-react'
+import { ChevronRight, Calendar, FileText, Table } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { exportToExcel, exportToPDF } from '../utils/exportUtils'
 
 export default function Reports() {
   const [reportType, setReportType] = useState('sales')
@@ -15,10 +16,6 @@ export default function Reports() {
   const [loading, setLoading] = useState(false)
   const [totalSales, setTotalSales] = useState(0)
   const [totalRevenue, setTotalRevenue] = useState(0)
-
-  useEffect(() => {
-    fetchReportData()
-  }, [reportType])
 
   const fetchReportData = async () => {
     setLoading(true)
@@ -43,55 +40,94 @@ export default function Reports() {
     }
   }
 
+  useEffect(() => {
+    fetchReportData()
+  }, [reportType])
+
   const handleFilterChange = () => {
     if (reportType === 'sales') {
       fetchReportData()
     }
   }
 
-  const exportToCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,'
+  const handleExportExcel = () => {
     let headers = []
-    let rows = []
+    let data = []
+    let fileName = `Report_${reportType}_${new Date().toISOString().split('T')[0]}`
 
     if (reportType === 'sales') {
-      headers = ['Sale ID', 'Date', 'Customer', 'Total', 'Payment Status']
-      rows = salesData.map((sale) => [
-        sale.clientId,
-        new Date(sale.createdAt).toLocaleString(),
-        sale.customer?.name || 'Cash Sale',
-        sale.total.toFixed(2),
-        sale.paymentStatus
-      ])
+      headers = [
+        { key: 'clientId', label: 'Sale ID' },
+        { key: 'dateStr', label: 'Date' },
+        { key: 'customerName', label: 'Customer' },
+        { key: 'total', label: 'Total (GH₵)' },
+        { key: 'paymentStatus', label: 'Status' }
+      ]
+      data = salesData.map(s => ({
+        ...s,
+        dateStr: new Date(s.createdAt).toLocaleString(),
+        customerName: s.customer?.name || 'Cash Sale'
+      }))
     } else if (reportType === 'best-selling') {
-      headers = ['Rank', 'Product Name', 'Units Sold', 'Revenue']
-      rows = bestSellingData.map((product, index) => [
-        index + 1,
-        product.name,
-        product.quantity,
-        product.revenue?.toFixed(2) || 0
-      ])
+      headers = [
+        { key: 'rank', label: 'Rank' },
+        { key: 'name', label: 'Product' },
+        { key: 'quantity', label: 'Units Sold' },
+        { key: 'revenue', label: 'Revenue (GH₵)' }
+      ]
+      data = bestSellingData.map((p, i) => ({ ...p, rank: i + 1 }))
     } else if (reportType === 'low-stock') {
-      headers = ['Product Name', 'Current Stock', 'Category']
-      rows = lowStockData.map((product) => [
-        product.name,
-        product.stock,
-        product.category?.name || 'Uncategorized'
-      ])
+      headers = [
+        { key: 'name', label: 'Product' },
+        { key: 'stock', label: 'Current Stock' },
+        { key: 'categoryName', label: 'Category' }
+      ]
+      data = lowStockData.map(p => ({ ...p, categoryName: p.category?.name || 'N/A' }))
     }
 
-    csvContent += headers.join(',') + '\n'
-    rows.forEach((row) => {
-      csvContent += row.map((cell) => `"${cell}"`).join(',') + '\n'
-    })
+    exportToExcel(data, fileName, headers)
+  }
 
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `report-${reportType}-${new Date().toISOString().split('T')[0]}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportPDF = () => {
+    let headers = []
+    let data = []
+    let title = 'Report'
+    let fileName = `Report_${reportType}_${new Date().toISOString().split('T')[0]}`
+
+    if (reportType === 'sales') {
+      title = 'Sales Transactions Report'
+      headers = [
+        { key: 'clientId', label: 'Sale ID' },
+        { key: 'dateStr', label: 'Date' },
+        { key: 'customerName', label: 'Customer' },
+        { key: 'total', label: 'Total', formatter: (v) => Number(v).toFixed(2) },
+        { key: 'paymentStatus', label: 'Status' }
+      ]
+      data = salesData.map(s => ({
+        ...s,
+        dateStr: new Date(s.createdAt).toLocaleString(),
+        customerName: s.customer?.name || 'Cash Sale'
+      }))
+    } else if (reportType === 'best-selling') {
+      title = 'Best Selling Products Report'
+      headers = [
+        { key: 'rank', label: 'Rank' },
+        { key: 'name', label: 'Product' },
+        { key: 'quantity', label: 'Units Sold' },
+        { key: 'revenue', label: 'Revenue', formatter: (v) => Number(v).toFixed(2) }
+      ]
+      data = bestSellingData.map((p, i) => ({ ...p, rank: i + 1 }))
+    } else if (reportType === 'low-stock') {
+      title = 'Low Stock Alert Report'
+      headers = [
+        { key: 'name', label: 'Product' },
+        { key: 'stock', label: 'Stock' },
+        { key: 'categoryName', label: 'Category' }
+      ]
+      data = lowStockData.map(p => ({ ...p, categoryName: p.category?.name || 'N/A' }))
+    }
+
+    exportToPDF(data, fileName, title, headers)
   }
 
   return (
@@ -209,13 +245,22 @@ export default function Reports() {
           <h2 className="text-lg font-bold text-text-primary">
             {reportType === 'sales' ? 'Sales Transactions' : reportType === 'best-selling' ? 'Best Selling Products' : 'Low Stock Items'}
           </h2>
-          <button
-            onClick={exportToCSV}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-green-600 text-white font-semibold text-sm hover:bg-green-700 transition disabled:opacity-50"
-          >
-            <Download size={16} /> Export CSV
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleExportPDF}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-border text-text-secondary font-semibold text-sm hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              <FileText size={16} /> Export PDF
+            </button>
+            <button
+              onClick={handleExportExcel}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-border text-text-secondary font-semibold text-sm hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              <Table size={16} /> Export Excel
+            </button>
+          </div>
         </div>
 
         {loading ? (

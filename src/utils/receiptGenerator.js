@@ -1,87 +1,270 @@
-import { jsPDF } from 'jspdf'
-import 'jspdf-autotable'
+const RECEIPT_WIDTH_MM = 80
 
-export const generateReceipt = (sale) => {
-  const doc = new jsPDF({
-    unit: 'mm',
-    format: [80, 150] // Typical thermal receipt size (80mm width)
-  })
+const escapeHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;')
 
-  const settings = JSON.parse(localStorage.getItem('palace-line-settings') || localStorage.getItem('drinks-pos-settings') || '{}')
+const formatMoney = (value, currency) => `${currency}${Number(value || 0).toFixed(2)}`
+
+const formatMethod = (method) => String(method || '')
+  .replace(/_/g, ' ')
+  .toLowerCase()
+  .replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+const getReceiptSettings = () => {
+  try {
+    return JSON.parse(
+      localStorage.getItem('palace-line-settings')
+      || localStorage.getItem('drinks-pos-settings')
+      || '{}'
+    )
+  } catch {
+    return {}
+  }
+}
+
+const buildReceiptHtml = (sale, settings) => {
   const shopName = settings.shopName || 'Palace Line Enterprise'
   const address = settings.address || 'Accra, Ghana'
   const footerText = settings.footerText || 'THANK YOU!'
-  const currency = settings.currency || 'GH₵'
+  const currency = settings.currency || 'GH₵ '
+  const receiptId = sale.clientId ? sale.clientId.slice(0, 8).toUpperCase() : 'SALE'
+  const date = sale.createdAt ? new Date(sale.createdAt) : new Date()
+  const paid = Number(sale.amountPaid || 0)
+  const change = Math.max(0, paid - Number(sale.total || 0))
 
-  // Header
-  doc.setFontSize(12)
-  doc.text(shopName, 40, 10, { align: 'center' })
-  doc.setFontSize(8)
-  doc.text(address, 40, 15, { align: 'center' })
-  doc.line(5, 20, 75, 20)
+  const rows = (sale.items || []).map((item) => {
+    const itemName = item.productName || item.name || item.packageName || 'Item'
+    const packageName = item.packageName && item.packageName !== itemName ? item.packageName : ''
+    const quantity = Number(item.quantity || 0)
+    const unitPrice = Number(item.unitPrice || 0)
+    const lineTotal = quantity * unitPrice
 
-  // Sale Info
-  doc.text(`Date: ${new Date(sale.createdAt).toLocaleString()}`, 5, 25)
-  doc.text(`Receipt: ${sale.clientId.slice(0, 8).toUpperCase()}`, 5, 30)
-  if (sale.customerName) {
-    doc.text(`Customer: ${sale.customerName}`, 5, 35)
+    return `
+      <div class="item">
+        <div class="item-name">${escapeHtml(itemName)}</div>
+        ${packageName ? `<div class="muted">${escapeHtml(packageName)}</div>` : ''}
+        <div class="item-line">
+          <span>${quantity} x ${formatMoney(unitPrice, currency)}</span>
+          <strong>${formatMoney(lineTotal, currency)}</strong>
+        </div>
+      </div>
+    `
+  }).join('')
+
+  const payments = (sale.paymentLines || []).map((line) => `
+    <div class="summary-row">
+      <span>${escapeHtml(formatMethod(line.method))}</span>
+      <span>${formatMoney(line.amount, currency)}</span>
+    </div>
+    ${line.momoReference ? `<div class="muted right">Ref: ${escapeHtml(line.momoReference)}</div>` : ''}
+  `).join('')
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Receipt ${escapeHtml(receiptId)}</title>
+    <style>
+      @page {
+        size: ${RECEIPT_WIDTH_MM}mm 297mm;
+        margin: 0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #fff;
+        color: #000;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .receipt {
+        width: ${RECEIPT_WIDTH_MM}mm;
+        min-height: 100%;
+        padding: 4mm;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .shop-name {
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      .address,
+      .muted {
+        color: #111;
+        font-size: 10px;
+      }
+
+      .divider {
+        border-top: 1px dashed #000;
+        margin: 7px 0;
+      }
+
+      .meta-row,
+      .summary-row,
+      .item-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .meta-row span:first-child,
+      .summary-row span:first-child,
+      .item-line span:first-child {
+        min-width: 0;
+      }
+
+      .item {
+        break-inside: avoid;
+        padding: 4px 0;
+      }
+
+      .item-name {
+        font-weight: 700;
+        overflow-wrap: anywhere;
+      }
+
+      .summary-row {
+        margin: 3px 0;
+      }
+
+      .total {
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .footer {
+        margin-top: 10px;
+        font-weight: 700;
+      }
+
+      .print-actions {
+        display: flex;
+        gap: 8px;
+        padding: 8px;
+        background: #f3f4f6;
+        border-bottom: 1px solid #d1d5db;
+        font-family: Arial, sans-serif;
+      }
+
+      .print-actions button {
+        border: 1px solid #111827;
+        background: #111827;
+        color: #fff;
+        border-radius: 4px;
+        padding: 8px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .print-actions button.secondary {
+        background: #fff;
+        color: #111827;
+      }
+
+      @media print {
+        body {
+          width: ${RECEIPT_WIDTH_MM}mm;
+        }
+
+        .print-actions {
+          display: none;
+        }
+
+        .receipt {
+          padding: 3mm;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="print-actions">
+      <button type="button" onclick="window.print()">Print</button>
+      <button type="button" class="secondary" onclick="window.close()">Close</button>
+    </div>
+
+    <main class="receipt">
+      <header class="center">
+        <div class="shop-name">${escapeHtml(shopName)}</div>
+        <div class="address">${escapeHtml(address)}</div>
+      </header>
+
+      <div class="divider"></div>
+
+      <section>
+        <div class="meta-row"><span>Date</span><span>${escapeHtml(date.toLocaleString())}</span></div>
+        <div class="meta-row"><span>Receipt</span><span>${escapeHtml(receiptId)}</span></div>
+        ${sale.customerName ? `<div class="meta-row"><span>Customer</span><span>${escapeHtml(sale.customerName)}</span></div>` : ''}
+        ${sale.cashierName ? `<div class="meta-row"><span>Cashier</span><span>${escapeHtml(sale.cashierName)}</span></div>` : ''}
+      </section>
+
+      <div class="divider"></div>
+
+      <section>
+        ${rows}
+      </section>
+
+      <div class="divider"></div>
+
+      <section>
+        ${Number(sale.discount || 0) > 0 ? `
+          <div class="summary-row"><span>Subtotal</span><span>${formatMoney(Number(sale.total || 0) + Number(sale.discount || 0), currency)}</span></div>
+          <div class="summary-row"><span>Discount</span><span>-${formatMoney(sale.discount, currency)}</span></div>
+        ` : ''}
+        <div class="summary-row total"><span>Total</span><span>${formatMoney(sale.total, currency)}</span></div>
+        ${payments}
+        ${change > 0 ? `<div class="summary-row"><span>Change</span><span>${formatMoney(change, currency)}</span></div>` : ''}
+        ${Number(sale.creditAmount || 0) > 0 ? `<div class="summary-row"><span>Amount Owed</span><span>${formatMoney(sale.creditAmount, currency)}</span></div>` : ''}
+      </section>
+
+      <div class="divider"></div>
+
+      <footer class="center footer">
+        ${escapeHtml(footerText)}
+      </footer>
+    </main>
+
+    <script>
+      window.addEventListener('load', () => {
+        window.focus();
+        setTimeout(() => window.print(), 150);
+      });
+    </script>
+  </body>
+</html>`
+}
+
+export const generateReceipt = (sale) => {
+  const settings = getReceiptSettings()
+  const receiptHtml = buildReceiptHtml(sale, settings)
+  const printWindow = window.open('', 'receipt-print', 'width=380,height=720')
+
+  if (!printWindow) {
+    alert('Please allow popups to print receipts.')
+    return
   }
-  doc.line(5, sale.customerName ? 38 : 33, 75, sale.customerName ? 38 : 33)
 
-  // Items Table
-  const tableData = sale.items.map(item => [
-    `${item.packageName || 'Unit'} ${item.name || 'Item'}`,
-    item.quantity.toString(),
-    `${currency}${item.unitPrice.toFixed(2)}`,
-    `${currency}${(item.quantity * item.unitPrice).toFixed(2)}`
-  ])
-
-  doc.autoTable({
-    startY: sale.customerName ? 40 : 35,
-    margin: { left: 5, right: 5 },
-    body: tableData,
-    columns: [
-      { header: 'Item', dataKey: 0 },
-      { header: 'Qty', dataKey: 1 },
-      { header: 'Price', dataKey: 2 },
-      { header: 'Total', dataKey: 3 }
-    ],
-    styles: { fontSize: 7, cellPadding: 1 },
-    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
-    theme: 'plain'
-  })
-
-  // Totals
-  const finalY = doc.previousAutoTable.finalY + 5
-  doc.line(40, finalY, 75, finalY)
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
-  doc.text('TOTAL:', 45, finalY + 5)
-  doc.text(`${currency}${sale.total.toFixed(2)}`, 75, finalY + 5, { align: 'right' })
-
-  let paymentY = finalY + 11
-  if (sale.paymentLines?.length) {
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    sale.paymentLines.forEach((line) => {
-      doc.text(`${line.method.replace('_', ' ')}:`, 45, paymentY)
-      doc.text(`${currency}${Number(line.amount).toFixed(2)}`, 75, paymentY, { align: 'right' })
-      paymentY += 5
-    })
-  }
-
-  if (sale.creditAmount > 0) {
-    doc.setFont('helvetica', 'bold')
-    doc.text('AMOUNT OWED:', 45, paymentY)
-    doc.text(`${currency}${Number(sale.creditAmount).toFixed(2)}`, 75, paymentY, { align: 'right' })
-    paymentY += 5
-  }
-
-  // Footer
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  doc.text(footerText, 40, paymentY + 5, { align: 'center' })
-
-  // Save/Download
-  doc.save(`Receipt-${sale.clientId.slice(0, 8)}.pdf`)
+  printWindow.document.open()
+  printWindow.document.write(receiptHtml)
+  printWindow.document.close()
 }

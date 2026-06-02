@@ -30,7 +30,7 @@ const buildReceiptHtml = (sale, settings) => {
   const shopName = settings.shopName || 'Palace Line Enterprise'
   const address = settings.address || 'Accra, Ghana'
   const footerText = settings.footerText || 'THANK YOU!'
-  const currency = settings.currency || 'GH₵ '
+  const currency = settings.currency || 'GHS '
   const receiptId = sale.clientId ? sale.clientId.slice(0, 8).toUpperCase() : 'SALE'
   const date = sale.createdAt ? new Date(sale.createdAt) : new Date()
   const paid = Number(sale.amountPaid || 0)
@@ -244,27 +244,75 @@ const buildReceiptHtml = (sale, settings) => {
       </footer>
     </main>
 
-    <script>
-      window.addEventListener('load', () => {
-        window.focus();
-        setTimeout(() => window.print(), 150);
-      });
-    </script>
   </body>
 </html>`
 }
 
-export const generateReceipt = (sale) => {
-  const settings = getReceiptSettings()
-  const receiptHtml = buildReceiptHtml(sale, settings)
+const printFromFrame = (receiptHtml) => {
+  const frame = document.createElement('iframe')
+  frame.title = 'Receipt print preview'
+  frame.style.position = 'fixed'
+  frame.style.right = '0'
+  frame.style.bottom = '0'
+  frame.style.width = `${RECEIPT_WIDTH_MM}mm`
+  frame.style.height = '1px'
+  frame.style.border = '0'
+  frame.style.opacity = '0'
+  frame.style.pointerEvents = 'none'
+
+  document.body.appendChild(frame)
+
+  const frameWindow = frame.contentWindow
+  const frameDocument = frame.contentDocument || frameWindow?.document
+
+  if (!frameWindow || !frameDocument) {
+    frame.remove()
+    return false
+  }
+
+  frameDocument.open()
+  frameDocument.write(receiptHtml)
+  frameDocument.close()
+
+  const cleanup = () => {
+    window.setTimeout(() => frame.remove(), 500)
+  }
+
+  frameWindow.addEventListener('afterprint', cleanup, { once: true })
+
+  window.setTimeout(() => {
+    frameWindow.focus()
+    frameWindow.print()
+    window.setTimeout(cleanup, 3000)
+  }, 150)
+
+  return true
+}
+
+const printFromPopup = (receiptHtml) => {
   const printWindow = window.open('', 'receipt-print', 'width=380,height=720')
 
   if (!printWindow) {
-    alert('Please allow popups to print receipts.')
-    return
+    return false
   }
 
   printWindow.document.open()
   printWindow.document.write(receiptHtml)
   printWindow.document.close()
+
+  window.setTimeout(() => {
+    printWindow.focus()
+    printWindow.print()
+  }, 150)
+
+  return true
+}
+
+export const generateReceipt = (sale) => {
+  const settings = getReceiptSettings()
+  const receiptHtml = buildReceiptHtml(sale, settings)
+
+  if (!printFromFrame(receiptHtml) && !printFromPopup(receiptHtml)) {
+    alert('Receipt printing could not start. Please allow popups and try again.')
+  }
 }

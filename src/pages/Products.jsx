@@ -110,7 +110,7 @@ export default function ProductsPage() {
       setFormData({
         name: '',
         price: '',
-        categoryId: categories[0]?.id || '',
+        categoryId: '',
         stock: 0,
         baseUnit: 'UNIT',
         cartonUnits: 24,
@@ -472,16 +472,23 @@ export default function ProductsPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-text-primary">Category</label>
-                  <select
-                    required
-                    value={formData.categoryId}
-                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light transition-all"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  {categories.length > 0 ? (
+                    <select
+                      required
+                      value={formData.categoryId}
+                      onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                      className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light transition-all"
+                    >
+                      <option value="" disabled>Select a category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="rounded-2xl border border-danger/20 bg-danger-light/10 p-3 text-xs text-danger font-medium">
+                      No valid categories found (Alcoholic/Non-Alcoholic). Please seed the database or contact admin.
+                    </div>
+                  )}
                 </div>
               </div>
 

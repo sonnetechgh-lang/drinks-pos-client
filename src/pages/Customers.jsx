@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { Banknote, Plus, Search, X } from 'lucide-react'
 import { getCustomers, createCustomer, updateCustomer } from '../api/customers'
 import { addCustomerPaymentToQueue } from '../db/syncQueue'
 import { useAuth } from '../hooks/useAuth'
@@ -25,6 +25,8 @@ export default function CustomersPage() {
   const [saving, setSaving] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   const loadCustomers = async (query = '') => {
     setLoading(true)
@@ -64,6 +66,7 @@ export default function CustomersPage() {
       setPhone('')
       setNotes('')
       setCreditLimit('')
+      setShowCreateModal(false)
     } catch (err) {
       console.error(err)
     } finally {
@@ -94,6 +97,7 @@ export default function CustomersPage() {
       setPaymentMethod('CASH')
       setMomoReference('')
       setPaymentNote('')
+      setShowPaymentModal(false)
     } catch (err) {
       alert('Failed to record payment')
     } finally {
@@ -144,9 +148,25 @@ export default function CustomersPage() {
           <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Accounts</p>
           <h1 className="mt-3 text-3xl font-black text-text-primary">Customers</h1>
         </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => setShowPaymentModal(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-white px-5 py-3 text-sm font-bold text-text-primary shadow-sm transition hover:bg-gray-50"
+          >
+            <Banknote size={18} /> Add Advance Payment
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark"
+          >
+            <Plus size={18} /> Add New Customer
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+      <div className={`grid gap-6 ${editingCustomer ? 'xl:grid-cols-[1.6fr_1fr]' : ''}`}>
         <section className="space-y-6">
           <div className="card p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -298,117 +318,8 @@ export default function CustomersPage() {
           </div>
         </section>
 
+        {editingCustomer && (
         <aside className="space-y-6">
-          <div className="card p-5">
-            <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Add New Customer</p>
-            <form onSubmit={handleCreate} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-text-primary mb-2">Name</label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  placeholder="Customer name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-text-primary mb-2">Phone</label>
-                <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  placeholder="Optional phone"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-text-primary mb-2">Credit limit</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={creditLimit}
-                  onChange={(e) => setCreditLimit(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-text-primary mb-2">Notes</label>
-                <input
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  placeholder="Optional notes"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
-              >
-                <Plus size={16} /> Add Customer
-              </button>
-            </form>
-          </div>
-
-          <div className="card p-5">
-            <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Advance payment</p>
-            <form onSubmit={handlePayment} className="mt-4 space-y-4">
-              <select
-                value={paymentCustomerId}
-                onChange={(e) => setPaymentCustomerId(e.target.value)}
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                required
-              >
-                <option value="">Select customer</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>{customer.name}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="Amount"
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                required
-              />
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-              >
-                <option value="CASH">Cash</option>
-                <option value="MOMO">MoMo</option>
-              </select>
-              {paymentMethod === 'MOMO' && (
-                <input
-                  value={momoReference}
-                  onChange={(e) => setMomoReference(e.target.value)}
-                  placeholder="MoMo reference"
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                />
-              )}
-              <input
-                value={paymentNote}
-                onChange={(e) => setPaymentNote(e.target.value)}
-                placeholder="Note (optional)"
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-              />
-              <button
-                type="submit"
-                disabled={savingPayment}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
-              >
-                Record Payment
-              </button>
-            </form>
-          </div>
-
-          {editingCustomer && (
             <div className="card p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -461,9 +372,170 @@ export default function CustomersPage() {
                 </button>
               </div>
             </div>
-          )}
         </aside>
+        )}
       </div>
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Customers</p>
+                <h2 className="mt-2 text-2xl font-black text-text-primary">Add New Customer</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-text-primary">Name</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  placeholder="Customer name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-text-primary">Phone</label>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  placeholder="Optional phone"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-text-primary">Credit limit</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={creditLimit}
+                  onChange={(e) => setCreditLimit(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-text-primary">Notes</label>
+                <input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  placeholder="Optional notes"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
+                >
+                  <Plus size={16} /> Add Customer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Customers</p>
+                <h2 className="mt-2 text-2xl font-black text-text-primary">Add Advance Payment</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(false)}
+                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handlePayment} className="space-y-4">
+              <select
+                value={paymentCustomerId}
+                onChange={(e) => setPaymentCustomerId(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                required
+              >
+                <option value="">Select customer</option>
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>{customer.name}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="Amount"
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                required
+              />
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+              >
+                <option value="CASH">Cash</option>
+                <option value="MOMO">MoMo</option>
+              </select>
+              {paymentMethod === 'MOMO' && (
+                <input
+                  value={momoReference}
+                  onChange={(e) => setMomoReference(e.target.value)}
+                  placeholder="MoMo reference"
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                />
+              )}
+              <input
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                placeholder="Note (optional)"
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+              />
+              <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
+                >
+                  Record Payment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

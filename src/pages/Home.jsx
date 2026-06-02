@@ -6,7 +6,7 @@ import { getProducts } from '../api/products'
 import { createCustomer, getCustomers } from '../api/customers'
 import { useAuth } from '../hooks/useAuth'
 import { generateReceipt } from '../utils/receiptGenerator'
-import { ShoppingCart, Search, Trash2, Plus, Minus, Package, Printer, Wifi, WifiOff } from 'lucide-react'
+import { ShoppingCart, Search, Trash2, Plus, Minus, Printer, Wifi, WifiOff } from 'lucide-react'
 
 export default function Home() {
   const { user } = useAuth()
@@ -177,8 +177,9 @@ export default function Home() {
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearch.trim().toLowerCase()
+    if (query.length < 2) return []
+
     return customers.filter((customer) => {
-      if (!query) return true
       return customer.name?.toLowerCase().includes(query) || customer.phone?.includes(query)
     })
   }, [customers, customerSearch])
@@ -199,6 +200,7 @@ export default function Home() {
   }, [paidAmount, cartTotal, paymentType])
 
   const saleCompleted = Boolean(lastSale) && cart.length === 0
+  const customerQueryReady = customerSearch.trim().length >= 2
 
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) return
@@ -272,10 +274,14 @@ export default function Home() {
       paymentLines,
     }
 
+    const receiptStarted = generateReceipt(sale)
+    if (!receiptStarted) return
+
     try {
       await addToQueue(sale)
       setLastSale(sale)
       setCart([])
+      setDiscount('')
       setPaidAmount('')
       setSelectedCustomerId('')
       setCustomerSearch('')
@@ -306,21 +312,6 @@ export default function Home() {
 
       <main className="flex-1 flex flex-col lg:grid lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 flex flex-col gap-6">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="card p-5">
-              <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Cashier</p>
-              <p className="mt-4 text-xl font-black text-text-primary">{user?.name}</p>
-            </div>
-            <div className="card p-5">
-              <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Products</p>
-              <p className="mt-4 text-xl font-black text-text-primary">{products.length}</p>
-            </div>
-            <div className="card p-5">
-              <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Current Sale</p>
-              <p className="mt-4 text-xl font-black text-text-primary">{cart.length} items</p>
-            </div>
-          </div>
-
           <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm">
             <div className="flex flex-col gap-4 border-b border-border bg-brand-blue-light/40 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -365,11 +356,8 @@ export default function Home() {
                       type="button"
                       onClick={() => addToCart(product)}
                       disabled={disabled}
-                      className={`group relative flex min-h-[240px] flex-col justify-between overflow-hidden rounded-3xl border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-float ${selected ? 'border-brand-blue' : 'border-border'} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}>
-                      <div className="flex h-24 items-center justify-center rounded-2xl bg-brand-blue-light text-brand-blue">
-                        <Package size={38} />
-                      </div>
-                      <div className="mt-4">
+                      className={`group relative flex min-h-[156px] flex-col justify-between overflow-hidden rounded-3xl border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-float ${selected ? 'border-brand-blue' : 'border-border'} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}>
+                      <div>
                         <h3 className="text-base font-semibold text-text-primary line-clamp-2">{product.name}</h3>
                         <p className="mt-2 text-sm text-text-secondary">{product.category?.name || 'Other'}</p>
                         <p className="mt-3 text-lg font-black text-brand-blue">GH₵ {Number(product.price).toFixed(2)}</p>
@@ -393,7 +381,6 @@ export default function Home() {
 
               {filteredProducts.length === 0 && (
                 <div className="mt-10 flex min-h-[240px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-gray-50 p-10 text-center text-text-secondary">
-                  <Package size={64} className="text-gray-300" />
                   <p className="mt-4 text-base font-semibold">No products match your search.</p>
                 </div>
               )}
@@ -522,7 +509,7 @@ export default function Home() {
                       placeholder="Search customer by name or phone"
                       className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
                     />
-                    {showCustomerDropdown && filteredCustomers.length > 0 && (
+                    {showCustomerDropdown && customerQueryReady && filteredCustomers.length > 0 && (
                       <div className="absolute inset-x-0 top-full z-20 mt-2 max-h-56 overflow-y-auto rounded-3xl border border-border bg-white shadow-lg">
                         {filteredCustomers.slice(0, 6).map((customer) => (
                           <button
@@ -539,6 +526,11 @@ export default function Home() {
                             <div className="text-xs text-text-secondary">{customer.phone}</div>
                           </button>
                         ))}
+                      </div>
+                    )}
+                    {showCustomerDropdown && customerQueryReady && filteredCustomers.length === 0 && (
+                      <div className="absolute inset-x-0 top-full z-20 mt-2 rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-secondary shadow-lg">
+                        No matching customer found.
                       </div>
                     )}
                   </div>

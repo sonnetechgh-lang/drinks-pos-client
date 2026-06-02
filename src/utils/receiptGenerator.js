@@ -312,5 +312,8 @@ export const generateReceipt = (sale) => {
 
   if (!printFromFrame(receiptHtml) && !printFromPopup(receiptHtml)) {
     alert('Receipt printing could not start. Please allow popups and try again.')
+    return false
   }
+
+  return true
 }

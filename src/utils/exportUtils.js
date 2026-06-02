@@ -1,6 +1,6 @@
 import { utils, writeFile } from 'xlsx'
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 
 /**
  * Export data to Excel (.xlsx)
@@ -39,6 +39,10 @@ export const exportToExcel = (data, fileName = 'export', headers = null) => {
  */
 export const exportToPDF = (data, fileName = 'export', title = 'Report', headers = []) => {
   const doc = jsPDF({ orientation: 'landscape' })
+  const safeData = Array.isArray(data) ? data : []
+  const safeHeaders = headers.length > 0
+    ? headers
+    : Object.keys(safeData[0] || {}).map((key) => ({ key, label: key }))
   
   // Add Title
   doc.setFontSize(18)
@@ -48,18 +52,18 @@ export const exportToPDF = (data, fileName = 'export', title = 'Report', headers
   doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30)
 
   // Prepare columns and body
-  const tableHeaders = headers.map(h => h.label)
-  const tableBody = data.map(item => headers.map(h => {
+  const tableHeaders = safeHeaders.map(h => h.label)
+  const tableBody = safeData.map(item => safeHeaders.map(h => {
     const val = item[h.key]
     if (h.formatter && typeof h.formatter === 'function') {
       return h.formatter(val, item)
     }
-    return val
+    return val ?? ''
   }))
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 35,
-    head: [tableHeaders],
+    head: tableHeaders.length ? [tableHeaders] : [['No data']],
     body: tableBody,
     theme: 'striped',
     headStyles: { fillColor: [37, 99, 235], textColor: 255 }, // brand-blue

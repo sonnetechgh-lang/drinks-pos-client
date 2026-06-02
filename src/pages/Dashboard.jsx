@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getTodayTotal, getBestSellingProducts, getTodaySales, getOutstandingCredit } from '../api/sales'
 import { getProductCount, getLowStockProducts } from '../api/products'
 import { getTopDebtors } from '../api/customers'
-import { TrendingUp, ChevronRight, AlertCircle, Package, AlertTriangle, Banknote, CreditCard } from 'lucide-react'
+import { ChevronRight, AlertCircle, Package, AlertTriangle, Banknote, CreditCard } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function Dashboard() {
@@ -50,7 +50,7 @@ export default function Dashboard() {
   if (loading) return <div className="p-8 text-center text-text-secondary">Loading dashboard...</div>
 
   return (
-    <div className="max-w-7xl mx-auto min-h-full space-y-8">
+    <div className="mx-auto min-h-full max-w-7xl space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Overview</p>
@@ -65,11 +65,11 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards - 2x2 on Mobile, 4 Columns on Desktop */}
-      <div className="grid grid-cols-2 gap-4 md:gap-6 xl:grid-cols-4">
-        <StatCard label="Total Products" value={productCount} icon={Package} />
-        <StatCard label="Low Stock Items" value={lowStockCount} icon={AlertTriangle} colorClass="bg-warning-light text-warning" />
-        <StatCard label="Today's Sales" value={`₵ ${todayTotal.toFixed(2)}`} icon={Banknote} />
-        <StatCard label="Outstanding Credit" value={`₵ ${outstandingCredit.toFixed(2)}`} icon={CreditCard} colorClass="bg-danger-light text-danger" />
+      <div className="grid grid-cols-2 gap-4 md:gap-5 xl:grid-cols-4">
+        <StatCard label="Total Products" value={productCount} icon={Package} tone="blue" />
+        <StatCard label="Low Stock Items" value={lowStockCount} icon={AlertTriangle} tone="amber" />
+        <StatCard label="Today's Sales" value={`GHS ${todayTotal.toFixed(2)}`} icon={Banknote} tone="green" />
+        <StatCard label="Outstanding Credit" value={`GHS ${outstandingCredit.toFixed(2)}`} icon={CreditCard} tone="red" />
       </div>
 
       {/* Main Content Grid */}
@@ -96,7 +96,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-text-primary text-sm">₵ {product.revenue?.toFixed(2) || 0}</p>
+                      <p className="font-semibold text-text-primary text-sm">GHS {product.revenue?.toFixed(2) || 0}</p>
                     </div>
                   </div>
                 ))}
@@ -151,7 +151,7 @@ export default function Dashboard() {
                       <p className="font-semibold text-text-primary truncate">{sale.customer?.name || 'Cash Sale'}</p>
                       <p className="text-text-secondary">{new Date(sale.createdAt).toLocaleTimeString()}</p>
                     </div>
-                    <p className="font-semibold text-brand-blue ml-2">₵ {sale.total?.toFixed(2) || 0}</p>
+                    <p className="font-semibold text-brand-blue ml-2">GHS {sale.total?.toFixed(2) || 0}</p>
                   </div>
                 ))}
               </div>
@@ -180,7 +180,7 @@ export default function Dashboard() {
                       <p className="font-semibold text-text-primary truncate">{customer.name}</p>
                       <p className="text-text-secondary">{customer.phone || 'No phone'}</p>
                     </div>
-                    <p className="font-semibold text-danger ml-2 whitespace-nowrap">₵ {customer.outstandingBalance?.toFixed(2) || 0}</p>
+                    <p className="font-semibold text-danger ml-2 whitespace-nowrap">GHS {customer.outstandingBalance?.toFixed(2) || 0}</p>
                   </div>
                 ))}
               </div>
@@ -200,14 +200,35 @@ export default function Dashboard() {
   )
 }
 
-function StatCard({ label, value, icon: Icon, colorClass = "bg-brand-blue-light text-brand-blue" }) {
+const statTones = {
+  blue: {
+    card: 'border-brand-blue/20 bg-brand-blue-light/45',
+    icon: 'bg-white text-brand-blue',
+  },
+  amber: {
+    card: 'border-warning/25 bg-warning-light/60',
+    icon: 'bg-white text-warning',
+  },
+  green: {
+    card: 'border-success/25 bg-success-light/60',
+    icon: 'bg-white text-success',
+  },
+  red: {
+    card: 'border-danger/25 bg-danger-light/55',
+    icon: 'bg-white text-danger',
+  },
+}
+
+function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
+  const color = statTones[tone] || statTones.blue
+
   return (
-    <div className="card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-0">
+    <div className={`flex flex-col justify-between gap-3 rounded-3xl border p-4 shadow-sm sm:flex-row sm:items-start sm:gap-0 sm:p-6 ${color.card}`}>
       <div className="flex-1 min-w-0 text-left">
         <p className="text-[10px] sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-text-secondary truncate">{label}</p>
         <p className="mt-1 sm:mt-4 text-lg sm:text-2xl font-black text-text-primary truncate">{value}</p>
       </div>
-      <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl shrink-0 self-end sm:self-auto ${colorClass}`}>
+      <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl shrink-0 self-end sm:self-auto shadow-sm ${color.icon}`}>
         <Icon size={20} className="sm:w-6 sm:h-6" />
       </div>
     </div>

@@ -6,25 +6,48 @@
   font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
   background-color: var(--bg-canvas);
   color: var(--text-primary);
-  --bg-canvas: #EFF6FF;
-  --bg-card: #FFFFFF;
-  --bg-sidebar: #FFFFFF;
+  --bg-canvas: 239 246 255;
+  --bg-card: 255 255 255;
+  --bg-sidebar: 255 255 255;
   --bg-overlay: rgba(0,0,0,0.35);
-  --primary: #2563EB;
-  --primary-light: #DBEAFE;
-  --primary-hover: #1D4ED8;
-  --success: #22C55E;
-  --success-light: #DCFCE7;
-  --danger: #EF4444;
-  --danger-light: #FEE2E2;
-  --warning: #F59E0B;
-  --warning-light: #FEF3C7;
-  --info: #3B82F6;
-  --text-primary: #111827;
-  --text-secondary: #6B7280;
-  --text-muted: #9CA3AF;
-  --border: #E5E7EB;
-  --border-focus: #2563EB;
+  --primary: 37 99 235;
+  --primary-light: 219 234 254;
+  --primary-hover: 29 78 216;
+  --success: 34 197 94;
+  --success-light: 220 252 231;
+  --danger: 239 68 68;
+  --danger-light: 254 226 226;
+  --warning: 245 158 11;
+  --warning-light: 254 243 199;
+  --info: 59 130 246;
+  --text-primary: 17 24 39;
+  --text-secondary: 107 114 128;
+  --text-muted: 156 163 175;
+  --border: 229 231 235;
+  --border-focus: 37 99 235;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg-canvas: 15 23 42;
+  --bg-card: 30 41 59;
+  --bg-sidebar: 15 23 42;
+  --bg-overlay: rgba(0,0,0,0.55);
+  --primary: 96 165 250;
+  --primary-light: 30 58 138;
+  --primary-hover: 147 197 253;
+  --success: 74 222 128;
+  --success-light: 20 83 45;
+  --danger: 248 113 113;
+  --danger-light: 127 29 29;
+  --warning: 251 191 36;
+  --warning-light: 120 53 15;
+  --info: 125 211 252;
+  --text-primary: 248 250 252;
+  --text-secondary: 203 213 225;
+  --text-muted: 148 163 184;
+  --border: 51 65 85;
+  --border-focus: 96 165 250;
 }
 
 html {
@@ -35,8 +58,25 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg-canvas);
-  color: var(--text-primary);
+  background: rgb(var(--bg-canvas));
+  color: rgb(var(--text-primary));
+}
+
+.dark .bg-white {
+  background-color: rgb(var(--bg-card));
+}
+
+.dark .bg-gray-50 {
+  background-color: rgb(15 23 42);
+}
+
+.dark .bg-gray-200 {
+  background-color: rgb(51 65 85);
+}
+
+.dark .text-gray-500,
+.dark .text-gray-600 {
+  color: rgb(var(--text-secondary));
 }
 
 * {

@@ -4,7 +4,6 @@ import { Plus, Edit, Trash2, Package, Search, Filter, Info, FileText, Table } fr
 import { exportToExcel, exportToPDF } from '../utils/exportUtils'
 
 const defaultPackageOptions = [{ name: 'Unit', unitsPerBase: 1, price: '', isDefault: true, active: true }]
-const allowedCategoryNames = ['Alcoholic', 'Non-Alcoholic']
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
@@ -41,18 +40,8 @@ export default function ProductsPage() {
         getCategories(),
       ])
 
-      // Enforce only Alcoholic and Non-Alcoholic categories
-      const filteredCategories = categoriesData.filter((category) => 
-        allowedCategoryNames.includes(category.name)
-      )
-      
-      // Sort them so Alcoholic is always first
-      const orderedCategories = ['Alcoholic', 'Non-Alcoholic']
-        .map((name) => filteredCategories.find((category) => category.name === name))
-        .filter(Boolean)
-
       setProducts(productsData)
-      setCategories(orderedCategories)
+      setCategories(categoriesData)
     } catch (_err) {
       console.error('Failed to fetch data', _err)
     } finally {
@@ -330,7 +319,7 @@ export default function ProductsPage() {
           </div>
           <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
             <Filter size={16} className="text-text-muted mr-2 hidden sm:block" />
-            {['All', ...allowedCategoryNames].map((cat) => (
+            {['All', ...categories.map((category) => category.name)].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -425,6 +414,7 @@ export default function ProductsPage() {
                           onClick={() => handleOpenStockModal(product)} 
                           className="flex h-9 w-9 items-center justify-center rounded-xl text-brand-blue transition hover:bg-brand-blue/10" 
                           title="Adjust Stock"
+                          aria-label={`Adjust stock for ${product.name}`}
                         >
                           <Package size={18} />
                         </button>
@@ -432,6 +422,7 @@ export default function ProductsPage() {
                           onClick={() => handleOpenModal(product)} 
                           className="flex h-9 w-9 items-center justify-center rounded-xl text-text-secondary transition hover:bg-gray-100" 
                           title="Edit"
+                          aria-label={`Edit ${product.name}`}
                         >
                           <Edit size={18} />
                         </button>
@@ -439,6 +430,7 @@ export default function ProductsPage() {
                           onClick={() => handleDelete(product.id)} 
                           className="flex h-9 w-9 items-center justify-center rounded-xl text-danger transition hover:bg-danger/10" 
                           title="Delete"
+                          aria-label={`Delete ${product.name}`}
                         >
                           <Trash2 size={18} />
                         </button>

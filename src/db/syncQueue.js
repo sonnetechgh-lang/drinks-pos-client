@@ -1,6 +1,8 @@
 import { db } from './dexie'
 import client from '../api/client'
 
+let activeFlush = null
+
 export const addCustomerToQueue = async (customer) => {
   const record = {
     ...customer,
@@ -100,7 +102,7 @@ const resolveCustomerIds = async (records, idMap) => {
 /**
  * Pushes all unsynced customers, payments, and sales to the server.
  */
-export const flushQueue = async () => {
+const runFlushQueue = async () => {
   const customerIdMap = await syncLocalCustomers()
   const unsynced = await db.syncQueue.where('synced').equals(0).toArray()
   
@@ -132,4 +134,14 @@ export const flushQueue = async () => {
     console.error('Failed to flush sync queue:', error.message)
     throw error
   }
+}
+
+export const flushQueue = async () => {
+  if (activeFlush) return activeFlush
+
+  activeFlush = runFlushQueue().finally(() => {
+    activeFlush = null
+  })
+
+  return activeFlush
 }

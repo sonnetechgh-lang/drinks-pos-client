@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { getTodayTotal, getBestSellingProducts, getTodaySales, getOutstandingCredit } from '../api/sales'
 import { getProductCount, getLowStockProducts } from '../api/products'
 import { getTopDebtors } from '../api/customers'
+import { db } from '../db/dexie'
 import { ChevronRight, AlertCircle, Package, AlertTriangle, Banknote, CreditCard } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -15,6 +17,38 @@ export default function Dashboard() {
   const [todaySales, setTodaySales] = useState([])
   const [topDebtors, setTopDebtors] = useState([])
   const [loading, setLoading] = useState(true)
+  const localProducts = useLiveQuery(() => db.products.toArray()) || []
+  const localCustomers = useLiveQuery(() => db.customers.toArray()) || []
+  const queuedRecords = useLiveQuery(() => db.syncQueue.toArray()) || []
+
+  const todayKey = new Date().toDateString()
+  const queuedSales = queuedRecords.filter((record) => !record.type || record.type === 'SALE')
+  const queuedPayments = queuedRecords.filter((record) => record.type === 'CUSTOMER_PAYMENT')
+  const unsyncedSales = queuedSales.filter((sale) => sale.synced === false || sale.synced === 0)
+  const unsyncedPayments = queuedPayments.filter((payment) => payment.synced === false || payment.synced === 0)
+  const unsyncedTodaySales = unsyncedSales.filter((sale) => new Date(sale.createdAt).toDateString() === todayKey)
+  const localProductCount = localProducts.length
+  const localLowStockProducts = localProducts.filter((product) => Number(product.stock || 0) <= 5)
+  const displayProductCount = Math.max(productCount, localProductCount)
+  const displayLowStockProducts = lowStockProducts.length > 0 ? lowStockProducts : localLowStockProducts.slice(0, 8)
+  const displayLowStockCount = Math.max(lowStockCount, localLowStockProducts.length)
+  const displayTodayTotal = todayTotal + unsyncedTodaySales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)
+  const displayOutstandingCredit = Math.max(
+    0,
+    outstandingCredit
+      + unsyncedSales.reduce((sum, sale) => sum + Number(sale.creditAmount || 0), 0)
+      - unsyncedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+  )
+  const displayTodaySales = [
+    ...unsyncedTodaySales.map((sale) => ({ ...sale, pendingSync: true })),
+    ...todaySales,
+  ].slice(0, 5)
+  const displayTopDebtors = topDebtors.length > 0
+    ? topDebtors
+    : localCustomers
+      .filter((customer) => Number(customer.balance || customer.outstandingBalance || 0) > 0)
+      .sort((a, b) => Number(b.balance || b.outstandingBalance || 0) - Number(a.balance || a.outstandingBalance || 0))
+      .slice(0, 5)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,10 +100,10 @@ export default function Dashboard() {
 
       {/* Stat Cards - 2x2 on Mobile, 4 Columns on Desktop */}
       <div className="grid grid-cols-2 gap-4 md:gap-5 xl:grid-cols-4">
-        <StatCard label="Total Products" value={productCount} icon={Package} tone="blue" />
-        <StatCard label="Low Stock Items" value={lowStockCount} icon={AlertTriangle} tone="amber" />
-        <StatCard label="Today's Sales" value={`GHS ${todayTotal.toFixed(2)}`} icon={Banknote} tone="green" />
-        <StatCard label="Outstanding Credit" value={`GHS ${outstandingCredit.toFixed(2)}`} icon={CreditCard} tone="red" />
+        <StatCard label="Total Products" value={displayProductCount} icon={Package} tone="blue" />
+        <StatCard label="Low Stock Items" value={displayLowStockCount} icon={AlertTriangle} tone="amber" />
+        <StatCard label="Today's Sales" value={`GHS ${displayTodayTotal.toFixed(2)}`} icon={Banknote} tone="green" />
+        <StatCard label="Outstanding Credit" value={`GHS ${displayOutstandingCredit.toFixed(2)}`} icon={CreditCard} tone="red" />
       </div>
 
       {/* Main Content Grid */}
@@ -115,9 +149,9 @@ export default function Dashboard() {
                 <p className="text-sm text-text-secondary">Products below threshold</p>
               </div>
             </div>
-            {lowStockProducts.length > 0 ? (
+            {displayLowStockProducts.length > 0 ? (
               <div className="space-y-2">
-                {lowStockProducts.map((product) => (
+                {displayLowStockProducts.map((product) => (
                   <div key={product.id} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-3 border border-warning/20">
                     <div>
                       <p className="font-semibold text-text-primary text-sm">{product.name}</p>
@@ -143,13 +177,13 @@ export default function Dashboard() {
               <h2 className="text-lg font-bold text-text-primary">Today's Sales</h2>
               <p className="text-xs text-text-secondary">Latest transactions</p>
             </div>
-            {todaySales.length > 0 ? (
+            {displayTodaySales.length > 0 ? (
               <div className="space-y-2">
-                {todaySales.map((sale, index) => (
-                  <div key={sale.id || index} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-2 text-xs border border-border">
+                {displayTodaySales.map((sale, index) => (
+                  <div key={sale.id || sale.clientId || index} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-2 text-xs border border-border">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-text-primary truncate">{sale.customer?.name || 'Cash Sale'}</p>
-                      <p className="text-text-secondary">{new Date(sale.createdAt).toLocaleTimeString()}</p>
+                      <p className="font-semibold text-text-primary truncate">{sale.customer?.name || sale.customerName || 'Cash Sale'}</p>
+                      <p className="text-text-secondary">{new Date(sale.createdAt).toLocaleTimeString()}{sale.pendingSync ? ' - pending sync' : ''}</p>
                     </div>
                     <p className="font-semibold text-brand-blue ml-2">GHS {sale.total?.toFixed(2) || 0}</p>
                   </div>
@@ -172,15 +206,15 @@ export default function Dashboard() {
               <h2 className="text-lg font-bold text-text-primary">Top Debtors</h2>
               <p className="text-xs text-text-secondary">Highest outstanding credit</p>
             </div>
-            {topDebtors.length > 0 ? (
+            {displayTopDebtors.length > 0 ? (
               <div className="space-y-2">
-                {topDebtors.map((customer) => (
+                {displayTopDebtors.map((customer) => (
                   <div key={customer.id} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-2 text-xs border border-border">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-text-primary truncate">{customer.name}</p>
                       <p className="text-text-secondary">{customer.phone || 'No phone'}</p>
                     </div>
-                    <p className="font-semibold text-danger ml-2 whitespace-nowrap">GHS {customer.outstandingBalance?.toFixed(2) || 0}</p>
+                    <p className="font-semibold text-danger ml-2 whitespace-nowrap">GHS {Number(customer.outstandingBalance ?? customer.balance ?? 0).toFixed(2)}</p>
                   </div>
                 ))}
               </div>

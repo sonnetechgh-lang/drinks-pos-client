@@ -50,7 +50,7 @@ export default function Reports() {
     }
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     let headers = []
     let data = []
     let fileName = `Report_${reportType}_${new Date().toISOString().split('T')[0]}`
@@ -85,10 +85,14 @@ export default function Reports() {
       data = lowStockData.map(p => ({ ...p, categoryName: p.category?.name || 'N/A' }))
     }
 
-    exportToExcel(data, fileName, headers)
+    try {
+      await exportToExcel(data, fileName, headers)
+    } catch (_err) {
+      alert('Excel export failed')
+    }
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     let headers = []
     let data = []
     let title = 'Report'
@@ -127,7 +131,11 @@ export default function Reports() {
       data = lowStockData.map(p => ({ ...p, categoryName: p.category?.name || 'N/A' }))
     }
 
-    exportToPDF(data, fileName, title, headers)
+    try {
+      await exportToPDF(data, fileName, title, headers)
+    } catch (_err) {
+      alert('PDF export failed')
+    }
   }
 
   return (

@@ -239,7 +239,7 @@ export default function ProductsPage() {
     }
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const headers = [
       { key: 'name', label: 'Product Name' },
       { key: 'categoryName', label: 'Category' },
@@ -251,10 +251,14 @@ export default function ProductsPage() {
       ...p,
       categoryName: p.category?.name || 'N/A'
     }))
-    exportToExcel(data, `Products_Export_${new Date().toISOString().split('T')[0]}`, headers)
+    try {
+      await exportToExcel(data, `Products_Export_${new Date().toISOString().split('T')[0]}`, headers)
+    } catch (_err) {
+      alert('Excel export failed')
+    }
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const headers = [
       { key: 'name', label: 'Product Name' },
       { key: 'categoryName', label: 'Category' },
@@ -266,7 +270,11 @@ export default function ProductsPage() {
       ...p,
       categoryName: p.category?.name || 'N/A'
     }))
-    exportToPDF(data, `Products_Export_${new Date().toISOString().split('T')[0]}`, 'Product Inventory Report', headers)
+    try {
+      await exportToPDF(data, `Products_Export_${new Date().toISOString().split('T')[0]}`, 'Product Inventory Report', headers)
+    } catch (_err) {
+      alert('PDF export failed')
+    }
   }
 
   if (loading && products.length === 0) return <div className="p-8 text-center text-text-secondary">Loading...</div>

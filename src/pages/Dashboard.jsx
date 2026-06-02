@@ -19,14 +19,12 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const localProducts = useLiveQuery(() => db.products.toArray()) || []
   const localCustomers = useLiveQuery(() => db.customers.toArray()) || []
-  const queuedRecords = useLiveQuery(() => db.syncQueue.toArray()) || []
+  const queuedRecords = useLiveQuery(() => db.syncQueue.where('synced').equals(0).toArray()) || []
 
   const todayKey = new Date().toDateString()
   const queuedSales = queuedRecords.filter((record) => !record.type || record.type === 'SALE')
   const queuedPayments = queuedRecords.filter((record) => record.type === 'CUSTOMER_PAYMENT')
-  const unsyncedSales = queuedSales.filter((sale) => sale.synced === false || sale.synced === 0)
-  const unsyncedPayments = queuedPayments.filter((payment) => payment.synced === false || payment.synced === 0)
-  const unsyncedTodaySales = unsyncedSales.filter((sale) => new Date(sale.createdAt).toDateString() === todayKey)
+  const unsyncedTodaySales = queuedSales.filter((sale) => new Date(sale.createdAt).toDateString() === todayKey)
   const localProductCount = localProducts.length
   const localLowStockProducts = localProducts.filter((product) => Number(product.stock || 0) <= 5)
   const displayProductCount = Math.max(productCount, localProductCount)
@@ -36,8 +34,8 @@ export default function Dashboard() {
   const displayOutstandingCredit = Math.max(
     0,
     outstandingCredit
-      + unsyncedSales.reduce((sum, sale) => sum + Number(sale.creditAmount || 0), 0)
-      - unsyncedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+      + queuedSales.reduce((sum, sale) => sum + Number(sale.creditAmount || 0), 0)
+      - queuedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
   )
   const displayTodaySales = [
     ...unsyncedTodaySales.map((sale) => ({ ...sale, pendingSync: true })),

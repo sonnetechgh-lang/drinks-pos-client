@@ -1,14 +1,11 @@
-import { utils, writeFile } from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
 /**
  * Export data to Excel (.xlsx)
  * @param {Array} data - Array of objects to export
  * @param {String} fileName - Desired file name (without extension)
  * @param {Array} headers - Optional: Array of column headers/keys to include
  */
-export const exportToExcel = (data, fileName = 'export', headers = null) => {
+export const exportToExcel = async (data, fileName = 'export', headers = null) => {
+  const { utils, writeFile } = await import('xlsx')
   let exportData = data
   
   // Filter by headers if provided
@@ -37,7 +34,11 @@ export const exportToExcel = (data, fileName = 'export', headers = null) => {
  * @param {String} title - Title to display on the PDF
  * @param {Array} headers - Array of header objects { key, label }
  */
-export const exportToPDF = (data, fileName = 'export', title = 'Report', headers = []) => {
+export const exportToPDF = async (data, fileName = 'export', title = 'Report', headers = []) => {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
   const doc = jsPDF({ orientation: 'landscape' })
   const safeData = Array.isArray(data) ? data : []
   const safeHeaders = headers.length > 0

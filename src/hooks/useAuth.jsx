@@ -44,6 +44,18 @@ export const AuthProvider = ({ children }) => {
     setAuthToken(null)
   }
 
+  const updateSession = ({ token: nextToken, user: nextUser }) => {
+    if (nextToken) {
+      localStorage.setItem(AUTH_TOKEN_KEY, nextToken)
+      setToken(nextToken)
+    }
+
+    if (nextUser) {
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser))
+      setUser(nextUser)
+    }
+  }
+
   const value = useMemo(
     () => ({
       token,
@@ -51,6 +63,7 @@ export const AuthProvider = ({ children }) => {
       error,
       login,
       logout,
+      updateSession,
       isAuthenticated: Boolean(token),
     }),
     [token, user, error]

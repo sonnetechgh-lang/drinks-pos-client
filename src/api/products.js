@@ -14,6 +14,7 @@ export const getProducts = async () => {
       categoryId: p.categoryId,
       price: p.price,
       stock: p.stock,
+      lowStockThreshold: p.lowStockThreshold,
       baseUnit: p.baseUnit,
       category: p.category,
       packageOptions: p.packageOptions || [],

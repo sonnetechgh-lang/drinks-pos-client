@@ -26,10 +26,14 @@ export default function Dashboard() {
   const queuedPayments = queuedRecords.filter((record) => record.type === 'CUSTOMER_PAYMENT')
   const unsyncedTodaySales = queuedSales.filter((sale) => new Date(sale.createdAt).toDateString() === todayKey)
   const localProductCount = localProducts.length
-  const localLowStockProducts = localProducts.filter((product) => Number(product.stock || 0) <= 5)
+  const isLowStock = (product) => Number(product.stock || 0) <= Number(product.lowStockThreshold ?? 5)
+  const localLowStockProducts = localProducts.filter(isLowStock)
   const displayProductCount = Math.max(productCount, localProductCount)
-  const displayLowStockProducts = lowStockProducts.length > 0 ? lowStockProducts : localLowStockProducts.slice(0, 8)
-  const displayLowStockCount = Math.max(lowStockCount, localLowStockProducts.length)
+  const displayLowStockProducts = [
+    ...lowStockProducts,
+    ...localLowStockProducts.filter((localProduct) => !lowStockProducts.some((product) => product.id === localProduct.id)),
+  ].slice(0, 8)
+  const displayLowStockCount = Math.max(lowStockCount, displayLowStockProducts.length, localLowStockProducts.length)
   const displayTodayTotal = todayTotal + unsyncedTodaySales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)
   const displayOutstandingCredit = Math.max(
     0,
@@ -153,7 +157,9 @@ export default function Dashboard() {
                   <div key={product.id} className="flex items-center justify-between rounded-2xl bg-bg-canvas p-3 border border-warning/20">
                     <div>
                       <p className="font-semibold text-text-primary text-sm">{product.name}</p>
-                      <p className="text-xs text-text-secondary">{product.stock} in stock</p>
+                      <p className="text-xs text-text-secondary">
+                        {product.stock} in stock, threshold {Number(product.lowStockThreshold ?? 5)}
+                      </p>
                     </div>
                     <span className="px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-semibold">
                       {product.stock} units

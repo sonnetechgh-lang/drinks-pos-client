@@ -23,6 +23,7 @@ export default function ProductsPage() {
     price: '',
     categoryId: '',
     stock: 0,
+    lowStockThreshold: 5,
     baseUnit: 'UNIT',
     cartonUnits: 24,
     cartonCount: 0,
@@ -96,6 +97,7 @@ export default function ProductsPage() {
         price: product.price,
         categoryId: product.categoryId,
         stock: product.stock,
+        lowStockThreshold: product.lowStockThreshold ?? 5,
         baseUnit: product.baseUnit || 'UNIT',
         cartonUnits: alcoholicOptions.cartonUnits,
         cartonCount,
@@ -112,6 +114,7 @@ export default function ProductsPage() {
         price: '',
         categoryId: '',
         stock: 0,
+        lowStockThreshold: 5,
         baseUnit: 'UNIT',
         cartonUnits: 24,
         cartonCount: 0,
@@ -173,6 +176,7 @@ export default function ProductsPage() {
         categoryId: formData.categoryId,
         baseUnit: formData.baseUnit,
         stock: calculatedStock,
+        lowStockThreshold: Number(formData.lowStockThreshold) || 5,
         packageOptions,
       }
 
@@ -245,6 +249,7 @@ export default function ProductsPage() {
       { key: 'categoryName', label: 'Category' },
       { key: 'price', label: 'Price (GH₵)' },
       { key: 'stock', label: 'Current Stock' },
+      { key: 'lowStockThreshold', label: 'Low Stock Threshold' },
       { key: 'baseUnit', label: 'Base Unit' }
     ]
     const data = filteredProducts.map(p => ({
@@ -264,6 +269,7 @@ export default function ProductsPage() {
       { key: 'categoryName', label: 'Category' },
       { key: 'price', label: 'Price (GH₵)', formatter: (val) => Number(val).toFixed(2) },
       { key: 'stock', label: 'Stock' },
+      { key: 'lowStockThreshold', label: 'Low Stock Threshold' },
       { key: 'baseUnit', label: 'Unit' }
     ]
     const data = filteredProducts.map(p => ({
@@ -352,6 +358,7 @@ export default function ProductsPage() {
                 <th className="px-6 py-5 font-bold">Price (GH₵)</th>
                 <th className="px-6 py-5 font-bold">Packaging</th>
                 <th className="px-6 py-5 font-bold">Current Stock</th>
+                <th className="px-6 py-5 font-bold">Low Stock At</th>
                 <th className="px-6 py-5 font-bold text-right">Actions</th>
               </tr>
             </thead>
@@ -362,6 +369,7 @@ export default function ProductsPage() {
                 const unitsPerCarton = cartonOption?.unitsPerBase || 24
                 const cartonCount = Math.floor(product.stock / unitsPerCarton)
                 const remainingUnits = product.stock % unitsPerCarton
+                const lowStockThreshold = Number(product.lowStockThreshold ?? 5)
 
                 return (
                   <tr key={product.id} className="group hover:bg-brand-blue-light/10 transition-colors">
@@ -396,7 +404,7 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className={`text-sm font-black ${product.stock <= 5 ? 'text-danger' : 'text-brand-blue'}`}>
+                        <span className={`text-sm font-black ${product.stock <= lowStockThreshold ? 'text-danger' : 'text-brand-blue'}`}>
                           {product.stock} Units
                         </span>
                         {isAlcoholicProd && (
@@ -405,6 +413,11 @@ export default function ProductsPage() {
                           </span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="rounded-full bg-warning-light px-3 py-1 text-xs font-semibold text-warning">
+                        {lowStockThreshold} units
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="inline-flex items-center gap-2">
@@ -513,6 +526,21 @@ export default function ProductsPage() {
                     <option value="CAN">Can</option>
                   </select>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-text-primary">Low Stock Threshold</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={formData.lowStockThreshold}
+                    onChange={(e) => setFormData({ ...formData, lowStockThreshold: e.target.value })}
+                    placeholder="5"
+                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
                 {!isAlcoholic && (
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-text-primary">Default Price (GH₵)</label>

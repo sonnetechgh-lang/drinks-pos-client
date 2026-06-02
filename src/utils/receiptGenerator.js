@@ -280,11 +280,9 @@ const printFromFrame = (receiptHtml) => {
 
   frameWindow.addEventListener('afterprint', cleanup, { once: true })
 
-  window.setTimeout(() => {
-    frameWindow.focus()
-    frameWindow.print()
-    window.setTimeout(cleanup, 3000)
-  }, 150)
+  frameWindow.focus()
+  frameWindow.print()
+  window.setTimeout(cleanup, 3000)
 
   return true
 }

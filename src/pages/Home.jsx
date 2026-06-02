@@ -85,6 +85,10 @@ export default function Home() {
   }
 
   const addToCart = (product) => {
+    if (lastSale && cart.length === 0) {
+      setLastSale(null)
+    }
+
     const isOutOfStock = product.stock <= 0
     const isExpired = product.expired || (product.expiryDate && new Date(product.expiryDate) <= new Date())
 
@@ -193,6 +197,8 @@ export default function Home() {
       amount: Math.max(0, cartTotal - paid),
     }
   }, [paidAmount, cartTotal, paymentType])
+
+  const saleCompleted = Boolean(lastSale) && cart.length === 0
 
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) return
@@ -632,18 +638,29 @@ export default function Home() {
             </div>
 
             <div className="mt-4 flex flex-col gap-3">
-              <button
-                onClick={handleCheckout}
-                disabled={cart.length === 0 || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) || (paymentType === 'CREDIT' && !selectedCustomerId)}
-                className="inline-flex w-full items-center justify-center gap-3 rounded-3xl bg-brand-blue px-6 py-4 text-lg font-black text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
-              >
-                COMPLETE SALE
-              </button>
+              {!saleCompleted && (
+                <button
+                  onClick={handleCheckout}
+                  disabled={cart.length === 0 || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) || (paymentType === 'CREDIT' && !selectedCustomerId)}
+                  className="inline-flex w-full items-center justify-center gap-3 rounded-3xl bg-brand-blue px-6 py-4 text-lg font-black text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
+                >
+                  COMPLETE SALE
+                </button>
+              )}
+              {saleCompleted && (
+                <button
+                  onClick={handlePrint}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-brand-blue px-6 py-4 text-sm font-semibold text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark"
+                >
+                  <Printer size={18} /> Print Receipt
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   if (!window.confirm('Are you sure you want to clear the cart?')) return
                   setCart([])
+                  setLastSale(null)
                   setPaidAmount('')
                   setSelectedCustomerId('')
                   setCustomerSearch('')
@@ -654,18 +671,12 @@ export default function Home() {
               >
                 Clear Cart
               </button>
-              <button
-                onClick={handlePrint}
-                disabled={!lastSale}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-3xl border border-border bg-white px-6 py-4 text-sm font-semibold text-text-primary transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Printer size={18} /> Print Receipt
-              </button>
             </div>
           </div>
         </aside>
       </main>
 
+      {!saleCompleted && (
       <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white px-4 py-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -681,6 +692,7 @@ export default function Home() {
           </button>
         </div>
       </div>
+      )}
     </div>
   )
 }

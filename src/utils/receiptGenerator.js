@@ -1,3 +1,5 @@
+import { defaultReceiptSettings, legacyReceiptDefaults } from '../config/business'
+
 const RECEIPT_WIDTH_MM = 80
 
 const escapeHtml = (value) => String(value ?? '')
@@ -16,21 +18,32 @@ const formatMethod = (method) => String(method || '')
 
 const getReceiptSettings = () => {
   try {
-    return JSON.parse(
+    const saved = JSON.parse(
       localStorage.getItem('palace-line-settings')
       || localStorage.getItem('drinks-pos-settings')
       || '{}'
     )
+    const settings = { ...defaultReceiptSettings, ...saved }
+
+    if (!saved.address || saved.address === legacyReceiptDefaults.address) {
+      settings.address = defaultReceiptSettings.address
+    }
+
+    return settings
   } catch {
-    return {}
+    return defaultReceiptSettings
   }
 }
 
 const buildReceiptHtml = (sale, settings) => {
-  const shopName = settings.shopName || 'Palace Line Enterprise'
-  const address = settings.address || 'Accra, Ghana'
-  const footerText = settings.footerText || 'THANK YOU!'
-  const currency = settings.currency || 'GHS '
+  const shopName = settings.shopName || defaultReceiptSettings.shopName
+  const address = settings.address === legacyReceiptDefaults.receiptAddress
+    ? defaultReceiptSettings.address
+    : settings.address || defaultReceiptSettings.address
+  const email = settings.email || defaultReceiptSettings.email
+  const phone = settings.phone || defaultReceiptSettings.phone
+  const footerText = settings.footerText || defaultReceiptSettings.footerText
+  const currency = settings.currency || defaultReceiptSettings.currency
   const receiptId = sale.clientId ? sale.clientId.slice(0, 8).toUpperCase() : 'SALE'
   const date = sale.createdAt ? new Date(sale.createdAt) : new Date()
   const paid = Number(sale.amountPaid || 0)
@@ -207,6 +220,8 @@ const buildReceiptHtml = (sale, settings) => {
       <header class="center">
         <div class="shop-name">${escapeHtml(shopName)}</div>
         <div class="address">${escapeHtml(address)}</div>
+        <div class="address">${escapeHtml(phone)}</div>
+        <div class="address">${escapeHtml(email)}</div>
       </header>
 
       <div class="divider"></div>

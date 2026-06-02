@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.jsx'
+import { businessDetails } from '../config/business'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -34,7 +35,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-brand-blue-light flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-sm border border-gray-200">
-        <h1 className="text-2xl font-semibold text-text-primary mb-2">Sign in to Palace Line Enterprise</h1>
+        <h1 className="text-2xl font-semibold text-text-primary mb-2">Sign in to {businessDetails.name}</h1>
+        <p className="text-xs text-text-secondary mb-2">{businessDetails.location}</p>
         <p className="text-sm text-text-secondary mb-6">Use your cashier or admin credentials to continue.</p>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <label className="block">

@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react'
+import { defaultReceiptSettings, legacyReceiptDefaults } from '../config/business'
 
 export default function Settings() {
-  const [settings, setSettings] = useState({
-    shopName: 'Palace Line Enterprise',
-    address: '123 Product St, Accra, Ghana',
-    footerText: 'Thank you for your business!',
-    currency: 'GH₵',
-  })
+  const [settings, setSettings] = useState(defaultReceiptSettings)
 
   useEffect(() => {
     const saved = localStorage.getItem('palace-line-settings') || localStorage.getItem('drinks-pos-settings')
-    if (saved) setSettings(JSON.parse(saved))
+    if (!saved) return
+
+    const parsed = JSON.parse(saved)
+    setSettings({
+      ...defaultReceiptSettings,
+      ...parsed,
+      address: !parsed.address || parsed.address === legacyReceiptDefaults.address
+        ? defaultReceiptSettings.address
+        : parsed.address,
+    })
   }, [])
 
   const handleSave = (e) => {
@@ -44,6 +49,26 @@ export default function Settings() {
             rows="3"
             value={settings.address}
             onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-text-primary mb-2">Email</label>
+          <input
+            type="email"
+            className="w-full rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+            value={settings.email}
+            onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-text-primary mb-2">Phone Numbers</label>
+          <input
+            type="text"
+            className="w-full rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+            value={settings.phone}
+            onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
           />
         </div>
 

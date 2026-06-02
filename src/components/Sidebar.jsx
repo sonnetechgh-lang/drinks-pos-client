@@ -9,6 +9,7 @@ import {
   X,
   BarChart3,
 } from 'lucide-react'
+import { businessDetails } from '../config/business'
 
 const navSections = [
   {
@@ -64,8 +65,9 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
       <aside className={`fixed inset-x-0 top-16 bottom-0 z-50 w-72 transform border-r border-border bg-white transition-transform duration-300 lg:fixed lg:inset-y-0 lg:top-0 lg:left-0 lg:translate-x-0 lg:w-60 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="hidden lg:flex lg:flex-col lg:h-full">
           <div className="px-6 py-7 border-b">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-secondary">Palace Lane</p>
-            <h2 className="mt-3 text-3xl font-black text-text-primary">Enterprise</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-text-secondary">Palace Line</p>
+            <h2 className="mt-3 text-3xl font-black text-text-primary">{businessDetails.name.replace('Palace Line ', '')}</h2>
+            <p className="mt-2 text-xs leading-5 text-text-secondary">{businessDetails.location}</p>
           </div>
 
           <div className="px-6 py-6 space-y-6">

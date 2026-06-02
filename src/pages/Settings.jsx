@@ -25,6 +25,7 @@ export default function Settings() {
   const [users, setUsers] = useState([])
   const [cashierForm, setCashierForm] = useState(emptyCashierForm)
   const [editingCashier, setEditingCashier] = useState(null)
+  const [accountModalOpen, setAccountModalOpen] = useState(false)
   const [cashierModalOpen, setCashierModalOpen] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [businessMessage, setBusinessMessage] = useState('')
@@ -102,6 +103,7 @@ export default function Settings() {
         confirmPassword: '',
       }))
       setAccountMessage('Login details updated.')
+      setAccountModalOpen(false)
       fetchUsers()
     } catch (error) {
       setAccountMessage(error.response?.data?.message || 'Failed to update login details.')
@@ -255,75 +257,31 @@ export default function Settings() {
           </button>
         </form>
 
-        <form onSubmit={handleAccountSave} className="card p-8 space-y-6">
+        <section className="card p-8 space-y-6">
           <div>
             <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Admin Account</p>
             <h2 className="mt-2 text-xl font-black text-text-primary">Login Credentials</h2>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-text-primary mb-2">Name</label>
-            <input
-              type="text"
-              required
-              className="w-full rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-              value={accountForm.name}
-              onChange={(event) => setAccountForm({ ...accountForm, name: event.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-text-primary mb-2">Email</label>
-            <input
-              type="email"
-              required
-              className="w-full rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-              value={accountForm.email}
-              onChange={(event) => setAccountForm({ ...accountForm, email: event.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-text-primary mb-2">Current Password</label>
-            <input
-              type="password"
-              className="w-full rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-              value={accountForm.currentPassword}
-              onChange={(event) => setAccountForm({ ...accountForm, currentPassword: event.target.value })}
-              placeholder="Required for email or password changes"
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="block text-sm font-semibold text-text-primary mb-2">New Password</label>
-              <input
-                type="password"
-                className="w-full rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                value={accountForm.newPassword}
-                onChange={(event) => setAccountForm({ ...accountForm, newPassword: event.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-text-primary mb-2">Confirm Password</label>
-              <input
-                type="password"
-                className="w-full rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                value={accountForm.confirmPassword}
-                onChange={(event) => setAccountForm({ ...accountForm, confirmPassword: event.target.value })}
-              />
-            </div>
+          <div className="rounded-3xl border border-border bg-gray-50 p-5">
+            <p className="text-xs uppercase tracking-[0.2em] text-text-secondary">Signed in as</p>
+            <p className="mt-3 text-lg font-black text-text-primary">{user?.name}</p>
+            <p className="mt-1 text-sm text-text-secondary">{user?.email}</p>
           </div>
 
           {accountMessage && <p className="text-sm font-semibold text-text-secondary">{accountMessage}</p>}
 
           <button
-            type="submit"
+            type="button"
+            onClick={() => {
+              setAccountMessage('')
+              setAccountModalOpen(true)
+            }}
             className="w-full rounded-3xl bg-brand-blue px-6 py-4 text-sm font-bold text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-blue-dark transition"
           >
-            Update Login Details
+            Update Login Credentials
           </button>
-        </form>
+        </section>
       </section>
 
       {isAdmin && (
@@ -471,6 +429,101 @@ export default function Settings() {
                   className="rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark"
                 >
                   {editingCashier ? 'Save Changes' : 'Add Cashier'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {accountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Admin Account</p>
+                <h2 className="mt-2 text-2xl font-black text-text-primary">Update Login Credentials</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAccountModalOpen(false)}
+                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
+                aria-label="Close login credentials form"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAccountSave} className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-text-primary">Name</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  value={accountForm.name}
+                  onChange={(event) => setAccountForm({ ...accountForm, name: event.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-text-primary">Email</label>
+                <input
+                  type="email"
+                  required
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  value={accountForm.email}
+                  onChange={(event) => setAccountForm({ ...accountForm, email: event.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-text-primary">Current Password</label>
+                <input
+                  type="password"
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  value={accountForm.currentPassword}
+                  onChange={(event) => setAccountForm({ ...accountForm, currentPassword: event.target.value })}
+                  placeholder="Required for email or password changes"
+                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-text-primary">New Password</label>
+                  <input
+                    type="password"
+                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                    value={accountForm.newPassword}
+                    onChange={(event) => setAccountForm({ ...accountForm, newPassword: event.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-text-primary">Confirm Password</label>
+                  <input
+                    type="password"
+                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                    value={accountForm.confirmPassword}
+                    onChange={(event) => setAccountForm({ ...accountForm, confirmPassword: event.target.value })}
+                  />
+                </div>
+              </div>
+
+              {accountMessage && <p className="text-sm font-semibold text-text-secondary">{accountMessage}</p>}
+
+              <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
+                <button
+                  type="button"
+                  onClick={() => setAccountModalOpen(false)}
+                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark"
+                >
+                  Save Login Details
                 </button>
               </div>
             </form>

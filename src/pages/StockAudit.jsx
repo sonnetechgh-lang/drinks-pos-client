@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState } from 'react'
 import { getStockLevels, updateStockAudit } from '../api/products'
-import { CheckCircle, Package, Search } from 'lucide-react'
+import { Package, Search } from 'lucide-react'
 import Skeleton from '../components/Skeleton'
 import ErrorBanner from '../components/ErrorBanner'
+import StatusPopup from '../components/StatusPopup'
 import { db } from '../db/dexie'
 
 export default function StockAudit() {
@@ -89,6 +90,8 @@ export default function StockAudit() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-12">
+      <StatusPopup message={message} onClose={() => setMessage(null)} />
+
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Inventory Control</p>
@@ -120,15 +123,6 @@ export default function StockAudit() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          {message && (
-            <div className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-bold ${
-              message.type === 'success'
-                ? 'bg-success-light text-success'
-                : 'bg-danger-light text-danger'
-            }`}>
-              <CheckCircle size={16} /> {message.text}
-            </div>
-          )}
         </div>
       </div>
 

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { getSalesReport, getBestSellingProducts } from '../api/sales'
 import { getLowStockProducts } from '../api/products'
-import { ChevronRight, Calendar, FileText, Table } from 'lucide-react'
+import { ChevronRight, Calendar, Eye, FileText, Printer, Table, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { exportToExcel, exportToPDF } from '../utils/exportUtils'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import ErrorBanner from '../components/ErrorBanner'
+import { getReceiptHtml, printReceipt } from '../utils/receiptGenerator'
 
 export default function Reports() {
   const [reportType, setReportType] = useState('sales')
@@ -19,6 +20,7 @@ export default function Reports() {
   const [error, setError] = useState('')
   const [totalSales, setTotalSales] = useState(0)
   const [totalRevenue, setTotalRevenue] = useState(0)
+  const [receiptSale, setReceiptSale] = useState(null)
 
   const fetchReportData = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true)
@@ -140,6 +142,17 @@ export default function Reports() {
       alert('PDF export failed')
     }
   }
+
+  const toReceiptSale = (sale) => ({
+    ...sale,
+    customerName: sale.customer?.name || sale.customerName,
+    customerPhone: sale.customer?.phone || sale.customerPhone,
+    cashierName: sale.cashier?.name || sale.cashierName,
+    items: (sale.items || []).map((item) => ({
+      ...item,
+      productName: item.product?.name || item.productName || item.name,
+    })),
+  })
 
   return (
     <div className="max-w-7xl mx-auto min-h-full space-y-8">
@@ -288,6 +301,7 @@ export default function Reports() {
                   <th className="px-4 py-3 text-left font-semibold text-text-secondary">Customer</th>
                   <th className="px-4 py-3 text-right font-semibold text-text-secondary">Total</th>
                   <th className="px-4 py-3 text-center font-semibold text-text-secondary">Status</th>
+                  <th className="px-4 py-3 text-right font-semibold text-text-secondary">Receipt</th>
                 </tr>
               </thead>
               <tbody>
@@ -297,7 +311,7 @@ export default function Reports() {
                       <td className="px-4 py-3 font-mono text-xs">{sale.clientId}</td>
                       <td className="px-4 py-3">{new Date(sale.createdAt).toLocaleString()}</td>
                       <td className="px-4 py-3">{sale.customer?.name || 'Cash Sale'}</td>
-                      <td className="px-4 py-3 text-right font-semibold">₵ {sale.total.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right font-semibold">GH₵ {Number(sale.total || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -311,11 +325,20 @@ export default function Reports() {
                           {sale.paymentStatus}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setReceiptSale(toReceiptSale(sale))}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-brand-blue hover:text-brand-blue"
+                        >
+                          <Eye size={14} /> View
+                        </button>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="px-4 py-8 text-center text-text-secondary">
+                    <td colSpan="6" className="px-4 py-8 text-center text-text-secondary">
                       No sales data found
                     </td>
                   </tr>
@@ -366,6 +389,56 @@ export default function Reports() {
           </div>
         )}
       </div>
+
+      {receiptSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-text-secondary">Receipt Preview</p>
+                <h2 className="mt-1 text-lg font-black text-text-primary">Sale Receipt</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReceiptSale(null)}
+                className="rounded-2xl border border-border bg-white p-2 text-text-secondary transition hover:bg-gray-50"
+                aria-label="Close receipt preview"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto bg-slate-100 px-4 py-5">
+              <div className="mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
+                <iframe
+                  title="Receipt preview"
+                  srcDoc={getReceiptHtml(receiptSale)}
+                  className="h-[620px] w-full border-0 bg-white"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-border bg-white px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setReceiptSale(null)}
+                className="rounded-2xl border border-border bg-white px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  printReceipt(receiptSale)
+                  setReceiptSale(null)
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark"
+              >
+                <Printer size={17} /> Print
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

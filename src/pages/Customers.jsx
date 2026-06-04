@@ -6,6 +6,7 @@ import { db } from '../db/dexie'
 import { useAuth } from '../hooks/useAuth'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import ErrorBanner from '../components/ErrorBanner'
+import StatusPopup from '../components/StatusPopup'
 
 export default function CustomersPage() {
   const { user } = useAuth()
@@ -184,19 +185,11 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div className={`grid gap-6 ${editingCustomer ? 'xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]' : ''}`}>
+      <StatusPopup message={statusMessage} onClose={() => setStatusMessage(null)} />
+
+      <div className="grid gap-6">
         <section className="space-y-6">
           <ErrorBanner message={error} onRetry={() => loadCustomers(search)} />
-
-          {statusMessage && (
-            <div className={`rounded-3xl border px-4 py-3 text-sm font-semibold ${
-              statusMessage.type === 'success'
-                ? 'border-success/20 bg-success-light text-success'
-                : 'border-danger/20 bg-danger-light text-danger'
-            }`}>
-              {statusMessage.text}
-            </div>
-          )}
 
           <div className="card p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -356,63 +349,73 @@ export default function CustomersPage() {
           </div>
         </section>
 
-        {editingCustomer && (
-        <aside className="space-y-6">
-            <div className="card p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Edit customer</p>
-                  <h2 className="mt-2 text-xl font-black text-text-primary">{editingCustomer.name}</h2>
-                </div>
+      </div>
+
+      {editingCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Customers</p>
+                <h2 className="mt-2 text-2xl font-black text-text-primary">Edit Customer</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCustomer(null)}
+                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Name</label>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Phone</label>
+                <input
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Credit limit</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editCreditLimit}
+                  onChange={(e) => setEditCreditLimit(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
                 <button
                   type="button"
                   onClick={() => setEditingCustomer(null)}
-                  className="rounded-2xl border border-border bg-white px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-gray-50"
+                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
                 >
                   Cancel
                 </button>
-              </div>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-text-primary mb-2">Name</label>
-                  <input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-text-primary mb-2">Phone</label>
-                  <input
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-text-primary mb-2">Credit limit</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editCreditLimit}
-                    onChange={(e) => setEditCreditLimit(e.target.value)}
-                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  />
-                </div>
                 <button
                   type="button"
                   onClick={handleSaveEdit}
                   disabled={savingEdit}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
                 >
                   Save Changes
                 </button>
               </div>
             </div>
-        </aside>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">

@@ -7,6 +7,7 @@ import { createCustomer, getCustomers } from '../api/customers'
 import { useAuth } from '../hooks/useAuth'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import { getReceiptHtml, printReceipt } from '../utils/receiptGenerator'
+import StatusPopup from '../components/StatusPopup'
 import { ShoppingCart, Search, Trash2, Plus, Minus, Printer, Wifi, WifiOff, X } from 'lucide-react'
 
 export default function Home() {
@@ -29,6 +30,7 @@ export default function Home() {
   const [momoReference, setMomoReference] = useState('')
   const [checkoutMessage, setCheckoutMessage] = useState(null)
   const [showReceiptPreview, setShowReceiptPreview] = useState(false)
+  const [pendingSale, setPendingSale] = useState(null)
 
   const liveProducts = useLiveQuery(() => db.products.toArray())
   const liveCustomers = useLiveQuery(() => db.customers.where('active').notEqual(0).toArray())
@@ -238,7 +240,48 @@ export default function Home() {
     }
   }
 
-  const handleCheckout = async () => {
+  const buildSale = () => {
+    const paid = parseAmount(paidAmount)
+    const paymentLines = []
+    if (paid > 0) {
+      paymentLines.push({ method: paymentMethod, amount: paid, momoReference: paymentMethod === 'MOMO' ? momoReference.trim() : undefined })
+    }
+    const creditAmount = paymentType === 'CREDIT' ? Math.max(0, cartTotal - paid) : 0
+    if (creditAmount > 0) {
+      paymentLines.push({ method: 'CREDIT', amount: creditAmount })
+    }
+
+    const paymentStatus = paymentType === 'FULL' ? 'PAID' : paid > 0 ? 'PARTIAL' : 'CREDIT'
+
+    return {
+      clientId: crypto.randomUUID(),
+      total: cartTotal,
+      discount: parseAmount(discount),
+      amountPaid: paid,
+      creditAmount,
+      paymentStatus,
+      customerId: selectedCustomer?.synced === 0 ? undefined : selectedCustomerId || undefined,
+      customerClientId: selectedCustomer?.synced === 0 ? selectedCustomer.clientId : undefined,
+      customerName: selectedCustomer?.name,
+      customerPhone: selectedCustomer?.phone,
+      cashierId: user.id,
+      cashierName: user?.name,
+      createdAt: new Date().toISOString(),
+      items: cart.map((item) => ({
+        productId: item.id,
+        productName: item.name,
+        packageOptionId: item.packageOptionId || undefined,
+        packageName: item.packageName || item.category?.name || item.name,
+        unitsPerBase: item.unitsPerBase || 1,
+        quantity: item.quantity,
+        baseQuantity: item.baseQuantity || item.quantity,
+        unitPrice: getLineUnitPrice(item),
+      })),
+      paymentLines,
+    }
+  }
+
+  const handleCheckout = () => {
     if (cart.length === 0) return
 
     const paid = parseAmount(paidAmount)
@@ -269,47 +312,15 @@ export default function Home() {
       return
     }
 
-    const paymentLines = []
-    if (paid > 0) {
-      paymentLines.push({ method: paymentMethod, amount: paid, momoReference: paymentMethod === 'MOMO' ? momoReference.trim() : undefined })
-    }
-    const creditAmount = paymentType === 'CREDIT' ? Math.max(0, cartTotal - paid) : 0
-    if (creditAmount > 0) {
-      paymentLines.push({ method: 'CREDIT', amount: creditAmount })
-    }
+    setPendingSale(buildSale())
+    setShowReceiptPreview(true)
+  }
 
-    const paymentStatus = paymentType === 'FULL' ? 'PAID' : paid > 0 ? 'PARTIAL' : 'CREDIT'
-
-    const sale = {
-      clientId: crypto.randomUUID(),
-      total: cartTotal,
-      discount: parseAmount(discount),
-      amountPaid: paid,
-      creditAmount,
-      paymentStatus,
-      customerId: selectedCustomer?.synced === 0 ? undefined : selectedCustomerId || undefined,
-      customerClientId: selectedCustomer?.synced === 0 ? selectedCustomer.clientId : undefined,
-      customerName: selectedCustomer?.name,
-      customerPhone: selectedCustomer?.phone,
-      cashierId: user.id,
-      cashierName: user?.name,
-      createdAt: new Date().toISOString(),
-      items: cart.map((item) => ({
-        productId: item.id,
-        productName: item.name,
-        packageOptionId: item.packageOptionId || undefined,
-        packageName: item.packageName || item.category?.name || item.name,
-        unitsPerBase: item.unitsPerBase || 1,
-        quantity: item.quantity,
-        baseQuantity: item.baseQuantity || item.quantity,
-        unitPrice: getLineUnitPrice(item),
-      })),
-      paymentLines,
-    }
-
+  const saveAndPrintSale = async (sale) => {
     try {
       const result = await addToQueue(sale)
       setLastSale(sale)
+      setPendingSale(null)
       setCart([])
       setDiscount('')
       setPaidAmount('')
@@ -324,7 +335,8 @@ export default function Home() {
           ? 'Sale completed and synced. Stock has been updated.'
           : `Sale saved locally. Stock was updated here and sync will retry. ${result.message || ''}`.trim(),
       })
-      setShowReceiptPreview(true)
+      printReceipt(sale)
+      setShowReceiptPreview(false)
     } catch {
       setCheckoutMessage({ type: 'error', text: 'Failed to save transaction locally.' })
     }
@@ -332,18 +344,30 @@ export default function Home() {
 
   const handlePrint = () => {
     if (lastSale) {
+      setPendingSale(null)
       setShowReceiptPreview(true)
     }
   }
 
-  const handleConfirmPrint = () => {
+  const handleConfirmPrint = async () => {
+    if (pendingSale) {
+      await saveAndPrintSale(pendingSale)
+      return
+    }
     if (!lastSale) return
     printReceipt(lastSale)
     setShowReceiptPreview(false)
   }
 
+  const handleCancelReceiptPreview = () => {
+    setShowReceiptPreview(false)
+    setPendingSale(null)
+  }
+
   return (
     <div className="flex min-h-full flex-col pb-28 xl:pb-0">
+      <StatusPopup message={checkoutMessage} onClose={() => setCheckoutMessage(null)} />
+
       <div className={`rounded-3xl border border-border px-4 py-3 text-sm font-semibold mb-6 ${online ? 'bg-success-light text-success' : 'bg-warning-light text-warning'}`}>
         <div className="flex items-center justify-center gap-2">
           {online ? <Wifi size={16} /> : <WifiOff size={16} />}
@@ -352,18 +376,6 @@ export default function Home() {
             : 'Offline — transactions save locally and sync when online.'}
         </div>
       </div>
-
-      {checkoutMessage && (
-        <div className={`mb-6 rounded-3xl border px-4 py-3 text-sm font-semibold ${
-          checkoutMessage.type === 'success'
-            ? 'border-success/20 bg-success-light text-success'
-            : checkoutMessage.type === 'warning'
-              ? 'border-warning/20 bg-warning-light text-warning'
-              : 'border-danger/20 bg-danger-light text-danger'
-        }`}>
-          {checkoutMessage.text}
-        </div>
-      )}
 
       <main className="flex-1 flex flex-col lg:grid lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 flex flex-col gap-6">
@@ -721,6 +733,7 @@ export default function Home() {
                   if (!window.confirm('Are you sure you want to clear the cart?')) return
                   setCart([])
                   setLastSale(null)
+                  setPendingSale(null)
                   setCheckoutMessage(null)
                   setShowReceiptPreview(false)
                   setPaidAmount('')
@@ -756,17 +769,17 @@ export default function Home() {
       </div>
       )}
 
-      {showReceiptPreview && lastSale && (
+      {showReceiptPreview && (pendingSale || lastSale) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
           <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
             <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-text-secondary">Receipt Preview</p>
-                <h2 className="mt-1 text-lg font-black text-text-primary">80mm thermal receipt</h2>
+                <h2 className="mt-1 text-lg font-black text-text-primary">Confirm Sale?</h2>
               </div>
               <button
                 type="button"
-                onClick={() => setShowReceiptPreview(false)}
+                onClick={handleCancelReceiptPreview}
                 className="rounded-2xl border border-border bg-white p-2 text-text-secondary transition hover:bg-gray-50"
                 aria-label="Close receipt preview"
               >
@@ -778,7 +791,7 @@ export default function Home() {
               <div className="mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
                 <iframe
                   title="Receipt preview"
-                  srcDoc={getReceiptHtml(lastSale)}
+                  srcDoc={getReceiptHtml(pendingSale || lastSale)}
                   className="h-[620px] w-full border-0 bg-white"
                 />
               </div>
@@ -787,7 +800,7 @@ export default function Home() {
             <div className="flex items-center justify-end gap-3 border-t border-border bg-white px-5 py-4">
               <button
                 type="button"
-                onClick={() => setShowReceiptPreview(false)}
+                onClick={handleCancelReceiptPreview}
                 className="rounded-2xl border border-border bg-white px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
               >
                 Cancel

@@ -1,6 +1,6 @@
 export const businessDetails = {
   name: 'Palace Line Enterprise',
-  location: 'Ejura - Opposite new market, Princess Drinking water',
+  location: 'Ejura - Opposite new market near Princess Drinking water',
   email: 'Ahenenanaosei@gmail.com',
   phone: '0547038184, 0244171169',
   footerText: 'Thank you for your business!',

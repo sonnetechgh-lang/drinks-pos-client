@@ -1,0 +1,71 @@
+import { useState, useMemo } from 'react'
+import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, updateStock } from '../api/products'
+import { Plus, Edit, Trash2, Package, Search, Filter, Info, FileText, Table } from 'lucide-react'
+import { exportToExcel, exportToPDF } from '../utils/exportUtils'
+import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
+import Skeleton from '../components/Skeleton'
+
+const defaultPackageOptions = [{ name: 'Unit', unitsPerBase: 1, price: '', wholesalePrice: '', isDefault: true, active: true }]
+
+export default function ProductsPage() {
+  const [products, setProducts] = useState([])
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isStockModalOpen, setIsStockModalOpen] = useState(false)
+  const [currentProduct, setCurrentProduct] = useState(null)
+  
+  // Search and Filter State
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('All')
+
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    categoryId: '',
+    stock: 0,
+    lowStockThreshold: 5,
+    baseUnit: 'UNIT',
+    cartonUnits: 24,
+    cartonCount: 0,
+    bottlePrice: '',
+    cartonPrice: '',
+    cartonWholesalePrice: '',
+    packageOptions: defaultPackageOptions,
+  })
+  const [stockData, setStockData] 
+                >
+                  {currentProduct ? 'Update Product' : 'Create Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Stock Adjustment Modal */}
+      {isStockModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-[2rem] bg-white p-8 shadow-2xl">
+            <h2 className="text-2xl font-black text-text-primary">Adjust Stock</h2>
+            <div className="mt-2 flex items-center gap-2 text-sm font-medium text-text-secondary">
+              <Package size={16} className="text-brand-blue" />
+              <span>{currentProduct?.name}</span>
+            </div>
+
+            <form onSubmit={handleStockSubmit} className="mt-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-text-primary">Adjustment Type</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setStockData({ ...stockData, type: 'RESTOCK' })}
+                    className={`rounded-2xl py-4 text-sm font-bold transition-all ${
+                      stockData.type === 'RESTOCK' 
+                        ? 'bg-brand-blue text-white shadow-md' 
+                        : 'bg-white border border-border text-text-secondary hover:bg-gray-50'
+                    }`}
+                  >
+                    Restock
+                  </button>
+                  <button

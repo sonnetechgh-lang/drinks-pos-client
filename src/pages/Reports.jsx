@@ -448,7 +448,7 @@ export default function Reports() {
             </div>
           )}
         >
-          <div className="mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
+          <div className="receipt-paper mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
             <iframe
               title="Receipt preview"
               srcDoc={getReceiptHtml(receiptSale)}

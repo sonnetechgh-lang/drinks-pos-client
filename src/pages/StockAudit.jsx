@@ -103,11 +103,11 @@ export default function StockAudit() {
           <h1 className="mt-3 text-3xl font-black text-text-primary">Physical Stock Audit</h1>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:w-auto">
-          <div className="rounded-2xl border border-border bg-white px-4 py-3 text-right shadow-sm">
+          <div className="rounded-2xl border border-border bg-white px-4 py-3 text-right shadow-sm dark:bg-bg-card">
             <p className="text-xs font-bold uppercase text-text-secondary">Products</p>
             <p className="mt-1 text-xl font-black text-text-primary">{filteredProducts.length}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-white px-4 py-3 text-right shadow-sm">
+          <div className="rounded-2xl border border-border bg-white px-4 py-3 text-right shadow-sm dark:bg-bg-card">
             <p className="text-xs font-bold uppercase text-text-secondary">Pending</p>
             <p className="mt-1 text-xl font-black text-brand-blue">{pendingAudits}</p>
           </div>
@@ -116,7 +116,7 @@ export default function StockAudit() {
 
       <ErrorBanner message={error} onRetry={fetchProducts} />
 
-      <div className="rounded-2xl border border-border bg-white p-4 shadow-sm sm:p-5">
+      <div className="rounded-2xl border border-border bg-white p-4 shadow-sm dark:bg-bg-card sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
@@ -131,7 +131,7 @@ export default function StockAudit() {
           <button
             type="button"
             onClick={() => setShowChangedOnly((value) => !value)}
-            className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${showChangedOnly ? 'border-brand-blue bg-brand-blue-light text-brand-blue' : 'border-border bg-white text-text-secondary hover:border-brand-blue hover:text-brand-blue'}`}
+            className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${showChangedOnly ? 'border-brand-blue bg-brand-blue-light text-brand-blue dark:bg-brand-blue-light/40 dark:text-text-primary' : 'border-border bg-white text-text-secondary hover:border-brand-blue hover:text-brand-blue dark:bg-bg-elevated dark:hover:bg-brand-blue-light/30 dark:hover:text-text-primary'}`}
           >
             {showChangedOnly ? 'Showing changed' : 'Show changed only'}
           </button>
@@ -145,23 +145,23 @@ export default function StockAudit() {
           const difference = isDirty ? parseInt(currentInput) - product.stock : 0
 
           return (
-            <div key={product.id} className={`flex min-h-[230px] flex-col justify-between rounded-2xl border bg-white p-5 shadow-sm transition-colors hover:border-brand-blue ${isDirty ? difference === 0 ? 'border-success/30' : 'border-warning/40' : 'border-border'}`}>
+            <div key={product.id} className={`flex min-h-[230px] flex-col justify-between rounded-2xl border bg-white p-5 shadow-sm transition-colors hover:border-brand-blue dark:bg-bg-card dark:hover:bg-bg-elevated ${isDirty ? difference === 0 ? 'border-success/40 dark:bg-success-light/10' : 'border-warning/50 dark:bg-warning-light/10' : 'border-border'}`}>
               <div className="flex items-start justify-between">
                 <div className="min-w-0">
                   <h3 className="truncate font-bold text-text-primary">{product.name}</h3>
                   <p className="mt-1 truncate text-xs font-semibold uppercase text-text-muted">{product.category?.name || 'Uncategorized'}</p>
                 </div>
-                <div className="ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-text-muted transition-colors">
+                <div className="ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-text-muted transition-colors dark:bg-bg-elevated dark:text-brand-blue">
                   <Package size={20} />
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center rounded-2xl bg-slate-50 px-3 py-4">
+              <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center rounded-2xl border border-transparent bg-slate-50 px-3 py-4 dark:border-border dark:bg-bg-subtle">
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-text-muted uppercase">System</p>
                   <p className="mt-1 text-lg font-black text-text-primary">{product.stock}</p>
                 </div>
-                <div className="h-8 w-px bg-gray-100" />
+                <div className="h-8 w-px bg-gray-100 dark:bg-border" />
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-text-muted uppercase">Actual</p>
                   <input
@@ -188,7 +188,7 @@ export default function StockAudit() {
                 <button
                   disabled={!isDirty || submittingProductId === product.id}
                   onClick={() => handleSubmitAudit(product)}
-                  className="h-10 rounded-xl bg-brand-blue px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
+                  className="h-10 rounded-xl bg-brand-blue px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500 dark:disabled:bg-bg-elevated dark:disabled:text-text-muted"
                 >
                   {submittingProductId === product.id ? 'Saving...' : 'Confirm'}
                 </button>
@@ -198,7 +198,7 @@ export default function StockAudit() {
         })}
       </div>
       {filteredProducts.length === 0 && (
-        <div className="rounded-3xl border border-dashed border-border bg-white p-10 text-center text-text-secondary">
+        <div className="rounded-3xl border border-dashed border-border bg-white p-10 text-center text-text-secondary dark:bg-bg-card">
           No products match the current audit filters.
         </div>
       )}

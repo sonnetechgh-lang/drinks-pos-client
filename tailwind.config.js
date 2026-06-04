@@ -6,6 +6,8 @@ export default {
       colors: {
         'bg-canvas': 'rgb(var(--bg-canvas) / <alpha-value>)',
         'bg-card': 'rgb(var(--bg-card) / <alpha-value>)',
+        'bg-elevated': 'rgb(var(--bg-elevated) / <alpha-value>)',
+        'bg-subtle': 'rgb(var(--bg-subtle) / <alpha-value>)',
         'bg-sidebar': 'rgb(var(--bg-sidebar) / <alpha-value>)',
         'bg-overlay': 'rgba(0,0,0,0.35)',
         'brand-blue': 'rgb(var(--primary) / <alpha-value>)',

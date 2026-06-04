@@ -33,8 +33,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-blue-light flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-sm border border-gray-200">
+    <div className="flex min-h-screen items-center justify-center bg-brand-blue-light px-4 py-10 dark:bg-bg-canvas">
+      <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 shadow-sm dark:border-border dark:bg-bg-card dark:shadow-2xl">
         <h1 className="text-2xl font-semibold text-text-primary mb-2">Sign in to {businessDetails.name}</h1>
         <p className="text-sm text-text-secondary mb-6">Use your cashier or admin credentials to continue.</p>
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -58,13 +58,13 @@ export default function LoginPage() {
               required
             />
           </label>
-          {message && <div className="text-sm text-red-600">{message}</div>}
+          {message && <div className="text-sm font-semibold text-danger">{message}</div>}
           <button
             type="submit"
             disabled={loading}
             className="mt-2 w-full rounded-xl bg-brand-blue px-4 py-3 text-sm font-semibold text-white hover:bg-brand-blue-dark disabled:opacity-60"
           >
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
       </div>

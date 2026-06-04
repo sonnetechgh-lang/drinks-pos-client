@@ -44,7 +44,7 @@ const navSections = [
   },
 ]
 
-export default function Sidebar({ isOpen, toggleSidebar }) {
+export default function Sidebar({ isOpen, toggleSidebar, closeSidebar = toggleSidebar }) {
   const { user } = useAuth()
   const roleBadge = user?.role === 'ADMIN'
     ? 'bg-brand-blue-light text-brand-blue'
@@ -77,7 +77,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                     <NavLink
                       key={item.path}
                       to={item.path}
-                      onClick={toggleSidebar}
+                      onClick={closeSidebar}
                       className={({ isActive }) => `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? 'bg-brand-blue-light text-brand-blue shadow-sm border-l-4 border-brand-blue' : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'}`}
                     >
                       {item.icon}
@@ -111,7 +111,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={toggleSidebar}
+                onClick={closeSidebar}
                 className={({ isActive }) => `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? 'bg-brand-blue-light text-brand-blue' : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'}`}
               >
                 {item.icon}

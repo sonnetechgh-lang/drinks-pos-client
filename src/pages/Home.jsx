@@ -5,6 +5,7 @@ import { addCustomerToQueue, addToQueue } from '../db/syncQueue'
 import { getProducts } from '../api/products'
 import { createCustomer, getCustomers } from '../api/customers'
 import { useAuth } from '../hooks/useAuth'
+import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import { generateReceipt } from '../utils/receiptGenerator'
 import { ShoppingCart, Search, Trash2, Plus, Minus, Printer, Wifi, WifiOff } from 'lucide-react'
 
@@ -27,19 +28,21 @@ export default function Home() {
   const [discount, setDiscount] = useState('')
   const [momoReference, setMomoReference] = useState('')
 
-  const products = useLiveQuery(() => db.products.toArray()) || []
-  const customers = useLiveQuery(() => db.customers.where('active').notEqual(0).toArray()) || []
+  const liveProducts = useLiveQuery(() => db.products.toArray())
+  const liveCustomers = useLiveQuery(() => db.customers.where('active').notEqual(0).toArray())
+  const products = useMemo(() => liveProducts || [], [liveProducts])
+  const customers = useMemo(() => liveCustomers || [], [liveCustomers])
+
+  const refreshRemoteData = async () => {
+    try {
+      await Promise.all([getProducts(), getCustomers()])
+    } catch {
+      console.warn('Could not refresh server data, using local cache.')
+    }
+  }
 
   useEffect(() => {
-    const syncProducts = async () => {
-      try {
-        await getProducts()
-      } catch (err) {
-        console.warn('Could not sync products from server, using local cache.')
-      }
-    }
-    syncProducts()
-
+    refreshRemoteData()
     const handleOnline = () => setOnline(true)
     const handleOffline = () => setOnline(false)
 
@@ -50,18 +53,7 @@ export default function Home() {
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
-
-  useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        const data = await getCustomers()
-        await db.customers.bulkPut(data.map((customer) => ({ ...customer, synced: 1 })))
-      } catch (err) {
-        console.warn('Unable to load customers', err)
-      }
-    }
-    loadCustomers()
-  }, [])
+  useRemoteRefresh(refreshRemoteData)
 
   const categories = useMemo(() => {
     const names = new Set(products.map((product) => product.category?.name || 'Other'))
@@ -82,6 +74,14 @@ export default function Home() {
   const parseAmount = (value) => {
     const parsed = Number(value)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  }
+
+  const getLineUnitPrice = (item) => {
+    const wholesalePrice = Number(item.wholesalePrice)
+    if (Number.isFinite(wholesalePrice) && wholesalePrice > 0 && item.quantity >= 2 && item.unitsPerBase > 1) {
+      return wholesalePrice
+    }
+    return Number(item.price) || 0
   }
 
   const addToCart = (product) => {
@@ -106,17 +106,24 @@ export default function Home() {
       const defaultPackage = product.packageOptions?.find((option) => option.isDefault && option.active !== false)
         || product.packageOptions?.find((option) => option.active !== false)
         || null
+      const unitsPerBase = defaultPackage?.unitsPerBase || 1
+      if (unitsPerBase > product.stock) {
+        alert('Not enough stock for this package option.')
+        return prev
+      }
       const cartProduct = {
         ...product,
         packageOptionId: defaultPackage?.id,
         packageName: defaultPackage?.name || 'Unit',
-        unitsPerBase: defaultPackage?.unitsPerBase || 1,
+        unitsPerBase,
         price: defaultPackage?.price ?? product.price,
-        baseQuantity: defaultPackage?.unitsPerBase || 1,
+        wholesalePrice: defaultPackage?.wholesalePrice,
+        baseQuantity: unitsPerBase,
       }
       const existing = prev.find((item) => item.id === product.id && item.packageOptionId === cartProduct.packageOptionId)
       if (existing) {
-        if (existing.quantity >= product.stock) {
+        const nextBaseQuantity = existing.baseQuantity + existing.unitsPerBase
+        if (nextBaseQuantity > product.stock) {
           alert('Cannot add more than available stock.')
           return prev
         }
@@ -137,7 +144,7 @@ export default function Home() {
           if (item.id !== id || item.packageOptionId !== packageOptionId) return item
           const nextQuantity = item.quantity + delta
           if (nextQuantity <= 0) return null
-          if (nextQuantity > item.stock) {
+          if (nextQuantity * item.unitsPerBase > item.stock) {
             alert('Cannot exceed available stock.')
             return item
           }
@@ -152,12 +159,17 @@ export default function Home() {
       if (item.id !== id || item.packageOptionId !== currentPackageOptionId) return item
       const option = item.packageOptions?.find((packageOption) => packageOption.id === nextPackageOptionId)
       if (!option) return item
+      if (item.quantity * option.unitsPerBase > item.stock) {
+        alert('Not enough stock for this package option.')
+        return item
+      }
       return {
         ...item,
         packageOptionId: option.id,
         packageName: option.name,
         unitsPerBase: option.unitsPerBase,
         price: option.price,
+        wholesalePrice: option.wholesalePrice,
         baseQuantity: item.quantity * option.unitsPerBase,
       }
     }))
@@ -167,7 +179,7 @@ export default function Home() {
     setCart((prev) => prev.filter((item) => !(item.id === id && item.packageOptionId === packageOptionId)))
   }
 
-  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart])
+  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + getLineUnitPrice(item) * item.quantity, 0), [cart])
   const cartTotal = useMemo(() => Math.max(0, cartSubtotal - parseAmount(discount)), [cartSubtotal, discount])
 
   const selectedCustomer = useMemo(
@@ -214,7 +226,7 @@ export default function Home() {
       setNewCustomerName('')
       setNewCustomerPhone('')
       setShowNewCustomer(false)
-    } catch (err) {
+    } catch {
       alert('Failed to create customer')
     }
   }
@@ -230,6 +242,20 @@ export default function Home() {
     if (paymentType === 'CREDIT' && !selectedCustomerId) {
       alert('Please select or add a customer for credit sales.')
       return
+    }
+    if (paymentMethod === 'ADVANCE_BALANCE') {
+      if (!selectedCustomerId) {
+        alert('Please select a customer to use advance balance.')
+        return
+      }
+      if (paid <= 0) {
+        alert('Enter the amount to deduct from the advance balance.')
+        return
+      }
+      if (paid > Number(selectedCustomer?.currentBalance || 0)) {
+        alert('Advance balance is not enough for this payment.')
+        return
+      }
     }
     if (paymentMethod === 'MOMO' && paid > 0 && !momoReference.trim()) {
       alert('Please enter a MoMo reference for mobile payments.')
@@ -269,13 +295,10 @@ export default function Home() {
         unitsPerBase: item.unitsPerBase || 1,
         quantity: item.quantity,
         baseQuantity: item.baseQuantity || item.quantity,
-        unitPrice: item.price,
+        unitPrice: getLineUnitPrice(item),
       })),
       paymentLines,
     }
-
-    const receiptStarted = generateReceipt(sale)
-    if (!receiptStarted) return
 
     try {
       await addToQueue(sale)
@@ -288,7 +311,8 @@ export default function Home() {
       setMomoReference('')
       setShowCustomerDropdown(false)
       setShowNewCustomer(false)
-    } catch (err) {
+      generateReceipt(sale)
+    } catch {
       alert('Failed to save transaction locally')
     }
   }
@@ -406,7 +430,7 @@ export default function Home() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className="font-semibold text-text-primary truncate">{item.name}</p>
-                        <p className="mt-1 text-sm text-text-secondary">GH₵ {Number(item.price).toFixed(2)} each</p>
+                        <p className="mt-1 text-sm text-text-secondary">GH₵ {getLineUnitPrice(item).toFixed(2)} each</p>
                       </div>
                       <button onClick={() => removeFromCart(item.id, item.packageOptionId)} className="text-text-secondary hover:text-danger transition">
                         <Trash2 size={18} />
@@ -439,10 +463,13 @@ export default function Home() {
                           <Plus size={14} />
                         </button>
                       </div>
-                      <p className="text-sm font-black text-text-primary">GH₵ {(item.price * item.quantity).toFixed(2)}</p>
+                      <p className="text-sm font-black text-text-primary">GH₵ {(getLineUnitPrice(item) * item.quantity).toFixed(2)}</p>
                     </div>
                     {item.unitsPerBase > 1 && (
-                      <p className="mt-2 text-xs font-semibold text-text-secondary">{item.baseQuantity} bottles deducted</p>
+                      <p className="mt-2 text-xs font-semibold text-text-secondary">
+                        {item.baseQuantity} bottles deducted
+                        {Number(item.wholesalePrice) > 0 && item.quantity >= 2 ? ' - wholesale applied' : ''}
+                      </p>
                     )}
                   </div>
                 ))
@@ -494,7 +521,7 @@ export default function Home() {
                 </button>
               </div>
 
-              {paymentType === 'CREDIT' && (
+              {(paymentType === 'CREDIT' || paymentMethod === 'ADVANCE_BALANCE') && (
                 <div className="mt-4 space-y-3">
                   <div className="relative">
                     <input
@@ -569,9 +596,19 @@ export default function Home() {
 
                   {selectedCustomer && (
                     <div className="rounded-3xl border border-border bg-white p-4 text-sm text-text-secondary">
-                      <p className="font-semibold text-text-primary">Selected customer</p>
-                      <p className="mt-2">{selectedCustomer.name}</p>
-                      <p className="text-xs">{selectedCustomer.phone}</p>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-text-primary">Selected customer</p>
+                          <p className="mt-1">{selectedCustomer.name}</p>
+                          <p className="text-xs">{selectedCustomer.phone}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold uppercase tracking-wider">Balance</p>
+                          <p className={`text-base font-black ${selectedCustomer.currentBalance >= 0 ? 'text-success' : 'text-danger'}`}>
+                            GH₵ {Number(selectedCustomer.currentBalance || 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -588,7 +625,7 @@ export default function Home() {
                 >
                   <option value="CASH">Cash</option>
                   <option value="MOMO">Mobile Money</option>
-                  <option value="BANK">Bank Transfer</option>
+                  <option value="ADVANCE_BALANCE">Advance Balance (Wallet)</option>
                 </select>
 
                 <label className="block text-sm">
@@ -633,7 +670,7 @@ export default function Home() {
               {!saleCompleted && (
                 <button
                   onClick={handleCheckout}
-                  disabled={cart.length === 0 || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) || (paymentType === 'CREDIT' && !selectedCustomerId)}
+                  disabled={cart.length === 0 || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) || (paymentType === 'CREDIT' && !selectedCustomerId) || (paymentMethod === 'ADVANCE_BALANCE' && !selectedCustomerId)}
                   className="inline-flex w-full items-center justify-center gap-3 rounded-3xl bg-brand-blue px-6 py-4 text-lg font-black text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
                 >
                   COMPLETE SALE
@@ -677,7 +714,7 @@ export default function Home() {
           </div>
           <button
             onClick={handleCheckout}
-            disabled={cart.length === 0 || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) || (paymentType === 'CREDIT' && !selectedCustomerId)}
+            disabled={cart.length === 0 || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) || (paymentType === 'CREDIT' && !selectedCustomerId) || (paymentMethod === 'ADVANCE_BALANCE' && !selectedCustomerId)}
             className="rounded-3xl bg-brand-blue px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
           >
             Complete Sale

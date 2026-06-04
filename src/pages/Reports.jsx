@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { getSalesReport, getBestSellingProducts } from '../api/sales'
 import { getLowStockProducts } from '../api/products'
 import { ChevronRight, Calendar, FileText, Table } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { exportToExcel, exportToPDF } from '../utils/exportUtils'
+import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
+import ErrorBanner from '../components/ErrorBanner'
 
 export default function Reports() {
   const [reportType, setReportType] = useState('sales')
@@ -14,11 +16,12 @@ export default function Reports() {
   const [bestSellingData, setBestSellingData] = useState([])
   const [lowStockData, setLowStockData] = useState([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [totalSales, setTotalSales] = useState(0)
   const [totalRevenue, setTotalRevenue] = useState(0)
 
-  const fetchReportData = async () => {
-    setLoading(true)
+  const fetchReportData = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true)
     try {
       if (reportType === 'sales') {
         const result = await getSalesReport(startDate, endDate, paymentStatus || undefined)
@@ -33,16 +36,16 @@ export default function Reports() {
         const result = await getLowStockProducts(100)
         setLowStockData(Array.isArray(result) ? result : [])
       }
+      setError('')
     } catch (error) {
+      setError(error.response?.data?.message || error.message || 'Failed to load report data.')
       console.error('Failed to fetch report data', error)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchReportData()
-  }, [reportType])
+  useRemoteRefresh(() => fetchReportData({ silent: salesData.length > 0 || bestSellingData.length > 0 || lowStockData.length > 0 }), 20000)
 
   const handleFilterChange = () => {
     if (reportType === 'sales') {
@@ -87,7 +90,7 @@ export default function Reports() {
 
     try {
       await exportToExcel(data, fileName, headers)
-    } catch (_err) {
+    } catch {
       alert('Excel export failed')
     }
   }
@@ -133,7 +136,7 @@ export default function Reports() {
 
     try {
       await exportToPDF(data, fileName, title, headers)
-    } catch (_err) {
+    } catch {
       alert('PDF export failed')
     }
   }
@@ -152,6 +155,8 @@ export default function Reports() {
           <ChevronRight size={16} /> Back to Dashboard
         </Link>
       </div>
+
+      <ErrorBanner message={error} onRetry={() => fetchReportData()} />
 
       {/* Report Type Selector */}
       <div className="card p-6">

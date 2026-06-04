@@ -171,30 +171,6 @@ const buildReceiptHtml = (sale, settings) => {
         font-weight: 700;
       }
 
-      .print-actions {
-        display: flex;
-        gap: 8px;
-        padding: 8px;
-        background: #f3f4f6;
-        border-bottom: 1px solid #d1d5db;
-        font-family: Arial, sans-serif;
-      }
-
-      .print-actions button {
-        border: 1px solid #111827;
-        background: #111827;
-        color: #fff;
-        border-radius: 4px;
-        padding: 8px 10px;
-        font-size: 12px;
-        cursor: pointer;
-      }
-
-      .print-actions button.secondary {
-        background: #fff;
-        color: #111827;
-      }
-
       @media print {
         body {
           width: ${RECEIPT_WIDTH_MM}mm;
@@ -211,11 +187,6 @@ const buildReceiptHtml = (sale, settings) => {
     </style>
   </head>
   <body>
-    <div class="print-actions">
-      <button type="button" onclick="window.print()">Print</button>
-      <button type="button" class="secondary" onclick="window.close()">Close</button>
-    </div>
-
     <main class="receipt">
       <header class="center">
         <div class="shop-name">${escapeHtml(shopName)}</div>
@@ -263,72 +234,78 @@ const buildReceiptHtml = (sale, settings) => {
 </html>`
 }
 
-const printFromFrame = (receiptHtml) => {
-  const frame = document.createElement('iframe')
-  frame.title = 'Receipt print preview'
-  frame.style.position = 'fixed'
-  frame.style.right = '0'
-  frame.style.bottom = '0'
-  frame.style.width = `${RECEIPT_WIDTH_MM}mm`
-  frame.style.height = '1px'
-  frame.style.border = '0'
-  frame.style.opacity = '0'
-  frame.style.pointerEvents = 'none'
-
-  document.body.appendChild(frame)
-
-  const frameWindow = frame.contentWindow
-  const frameDocument = frame.contentDocument || frameWindow?.document
-
-  if (!frameWindow || !frameDocument) {
-    frame.remove()
-    return false
-  }
-
-  frameDocument.open()
-  frameDocument.write(receiptHtml)
-  frameDocument.close()
-
-  const cleanup = () => {
-    window.setTimeout(() => frame.remove(), 500)
-  }
-
-  frameWindow.addEventListener('afterprint', cleanup, { once: true })
-
-  frameWindow.focus()
-  frameWindow.print()
-  window.setTimeout(cleanup, 3000)
-
-  return true
+const getReceiptBody = (receiptHtml) => {
+  const parsed = new DOMParser().parseFromString(receiptHtml, 'text/html')
+  return parsed.querySelector('.receipt')?.outerHTML || receiptHtml
 }
 
-const printFromPopup = (receiptHtml) => {
-  const printWindow = window.open('', 'receipt-print', 'width=380,height=720')
+const printInCurrentPage = (receiptHtml) => {
+  let printRoot = document.getElementById('receipt-print-root')
+  let printStyle = document.getElementById('receipt-print-style')
 
-  if (!printWindow) {
-    return false
+  if (!printRoot) {
+    printRoot = document.createElement('div')
+    printRoot.id = 'receipt-print-root'
+    document.body.appendChild(printRoot)
   }
 
-  printWindow.document.open()
-  printWindow.document.write(receiptHtml)
-  printWindow.document.close()
+  if (!printStyle) {
+    printStyle = document.createElement('style')
+    printStyle.id = 'receipt-print-style'
+    document.head.appendChild(printStyle)
+  }
+
+  printRoot.innerHTML = getReceiptBody(receiptHtml)
+  printStyle.textContent = `
+    #receipt-print-root { display: none; }
+    @media print {
+      @page { size: ${RECEIPT_WIDTH_MM}mm 297mm; margin: 0; }
+      body > *:not(#receipt-print-root) { display: none !important; }
+      #receipt-print-root {
+        display: block !important;
+        width: ${RECEIPT_WIDTH_MM}mm;
+        margin: 0;
+        background: #fff;
+        color: #000;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+      #receipt-print-root .receipt {
+        width: ${RECEIPT_WIDTH_MM}mm;
+        padding: 3mm;
+      }
+    }
+  `
 
   window.setTimeout(() => {
-    printWindow.focus()
-    printWindow.print()
+    window.print()
   }, 150)
+}
 
-  return true
+const printInNewWindow = (receiptHtml) => {
+  try {
+    const printWindow = window.open('', '_blank', 'width=350,height=600')
+    if (!printWindow) {
+      throw new Error('Popup blocked')
+    }
+    printWindow.document.write(receiptHtml)
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 250)
+  } catch (err) {
+    console.warn('Popup blocked or failed, using current-page printing fallback:', err)
+    printInCurrentPage(receiptHtml)
+  }
 }
 
 export const generateReceipt = (sale) => {
   const settings = getReceiptSettings()
   const receiptHtml = buildReceiptHtml(sale, settings)
 
-  if (!printFromFrame(receiptHtml) && !printFromPopup(receiptHtml)) {
-    alert('Receipt printing could not start. Please allow popups and try again.')
-    return false
-  }
-
+  printInNewWindow(receiptHtml)
   return true
 }

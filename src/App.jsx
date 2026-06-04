@@ -11,6 +11,7 @@ const LoginPage = lazy(() => import('./pages/Login.jsx'))
 const ProductsPage = lazy(() => import('./pages/Products.jsx'))
 const DashboardPage = lazy(() => import('./pages/Dashboard.jsx'))
 const ReportsPage = lazy(() => import('./pages/Reports.jsx'))
+const StockAuditPage = lazy(() => import('./pages/StockAudit.jsx'))
 const CustomersPage = lazy(() => import('./pages/Customers.jsx'))
 const SettingsPage = lazy(() => import('./pages/Settings.jsx'))
 
@@ -42,6 +43,7 @@ function App() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="products" element={<ProductsPage />} />
+              <Route path="stock-audit" element={<StockAuditPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Route>

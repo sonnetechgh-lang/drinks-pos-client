@@ -1,8 +1,12 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
-import { CheckCircle, Edit, Plus, Trash2, UserPen, X } from 'lucide-react'
 import { defaultReceiptSettings, legacyReceiptDefaults } from '../config/business'
 import { useAuth } from '../hooks/useAuth'
 import { createUser, deleteUser, getUsers, updateMyProfile, updateUser } from '../api/users'
+import { db } from '../db/dexie'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { flushQueue } from '../db/syncQueue'
+import { AlertCircle, CheckCircle, Edit, Plus, RefreshCw, Trash2, UserPen, X } from 'lucide-react'
 
 const emptyCashierForm = {
   name: '',
@@ -32,8 +36,44 @@ export default function Settings() {
   const [accountMessage, setAccountMessage] = useState('')
   const [cashierMessage, setCashierMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [syncing, setSyncing] = useState(false)
 
   const isAdmin = user?.role === 'ADMIN'
+
+  // Sync Queue Data
+  const unsyncedItems = useLiveQuery(() => db.syncQueue.where('synced').equals(0).toArray()) || []
+  const failedItems = unsyncedItems.filter(item => item.attempts > 0)
+
+  const handleManualSync = async () => {
+    setSyncing(true)
+    try {
+      await flushQueue()
+      setSuccessMessage('Sync completed successfully.')
+    } catch (error) {
+      console.error('Manual sync failed', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const handleClearSyncQueue = async () => {
+    if (!window.confirm('Are you sure you want to clear the unsynced items? This data will NOT be sent to the server.')) return
+    try {
+      await db.syncQueue.where('synced').equals(0).delete()
+      setSuccessMessage('Sync queue cleared.')
+    } catch (error) {
+      console.error('Failed to clear sync queue', error)
+    }
+  }
+
+  const handleRemoveSyncItem = async (id) => {
+    if (!window.confirm('Remove this item from the sync queue?')) return
+    try {
+      await db.syncQueue.delete(id)
+    } catch (error) {
+      console.error('Failed to remove sync item', error)
+    }
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem('palace-line-settings') || localStorage.getItem('drinks-pos-settings')
@@ -299,20 +339,100 @@ export default function Settings() {
           </button>
         </form>
 
-        <section className="card p-8 space-y-6">
-          <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Admin Account</p>
-            <h2 className="mt-2 text-xl font-black text-text-primary">Login Credentials</h2>
-          </div>
+        <div className="space-y-8">
+          <section className="card p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Sync Health</p>
+                <h2 className="mt-2 text-xl font-black text-text-primary">Local Data Status</h2>
+              </div>
+              <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${unsyncedItems.length > 0 ? 'bg-amber-50 text-amber-500' : 'bg-success-light text-success'}`}>
+                {unsyncedItems.length > 0 ? <AlertCircle size={24} /> : <CheckCircle size={24} />}
+              </div>
+            </div>
 
-          <div className="rounded-3xl border border-border bg-gray-50 p-5">
-            <p className="text-xs uppercase tracking-[0.2em] text-text-secondary">Signed in as</p>
-            <p className="mt-3 text-lg font-black text-text-primary">{user?.name}</p>
-            <p className="mt-1 text-sm text-text-secondary">{user?.email}</p>
-          </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-2xl bg-gray-50 p-4">
+                <span className="text-sm font-semibold text-text-secondary">Items in Queue</span>
+                <span className="text-lg font-black text-text-primary">{unsyncedItems.length}</span>
+              </div>
 
-          {accountMessage && <p className="text-sm font-semibold text-text-secondary">{accountMessage}</p>}
-        </section>
+              {failedItems.length > 0 && (
+                <div className="rounded-2xl border border-danger-light bg-danger-light/10 p-4">
+                  <div className="flex items-center gap-2 text-danger">
+                    <AlertCircle size={16} />
+                    <span className="text-xs font-bold uppercase tracking-wider">Poison Pill Alert</span>
+                  </div>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {failedItems.length} items have failed to sync multiple times.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={syncing || unsyncedItems.length === 0}
+                  onClick={handleManualSync}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-white border border-border px-4 py-3 text-xs font-bold text-text-primary hover:bg-gray-50 disabled:opacity-50 transition"
+                >
+                  <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+                  {syncing ? 'Syncing...' : 'Force Sync'}
+                </button>
+                <button
+                  type="button"
+                  disabled={unsyncedItems.length === 0}
+                  onClick={handleClearSyncQueue}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-danger-light/20 border border-danger-light px-4 py-3 text-xs font-bold text-danger hover:bg-danger-light/30 disabled:opacity-50 transition"
+                >
+                  <Trash2 size={14} /> Clear Queue
+                </button>
+              </div>
+            </div>
+
+            {failedItems.length > 0 && (
+              <div className="space-y-3 pt-4 border-t border-border">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Error Details</p>
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
+                  {failedItems.slice(0, 5).map(item => (
+                    <div key={item.id} className="group relative rounded-xl border border-border p-3 text-left">
+                      <div className="flex items-start justify-between">
+                        <div className="pr-6">
+                          <p className="text-[10px] font-bold text-text-primary uppercase tracking-wider">{item.type || 'SALE'}</p>
+                          <p className="mt-1 text-[10px] text-danger font-medium leading-relaxed">{item.lastError || 'Unknown error'}</p>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveSyncItem(item.id)}
+                          className="absolute right-2 top-2 p-1 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {failedItems.length > 5 && (
+                    <p className="text-[10px] text-center text-text-muted">+{failedItems.length - 5} more errors</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="card p-8 space-y-6">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Admin Account</p>
+              <h2 className="mt-2 text-xl font-black text-text-primary">Login Credentials</h2>
+            </div>
+
+            <div className="rounded-3xl border border-border bg-gray-50 p-5">
+              <p className="text-xs uppercase tracking-[0.2em] text-text-secondary">Signed in as</p>
+              <p className="mt-3 text-lg font-black text-text-primary">{user?.name}</p>
+              <p className="mt-1 text-sm text-text-secondary">{user?.email}</p>
+            </div>
+
+            {accountMessage && <p className="text-sm font-semibold text-text-secondary">{accountMessage}</p>}
+          </section>
+        </div>
       </section>
 
       {isAdmin && (

@@ -1,5 +1,6 @@
 import { db } from './dexie'
 import client from '../api/client'
+import { getProducts } from '../api/products'
 
 let activeFlush = null
 
@@ -7,7 +8,7 @@ export const addCustomerToQueue = async (customer) => {
   const record = {
     ...customer,
     clientId: customer.clientId || crypto.randomUUID(),
-    synced: false,
+    synced: 0,
     active: customer.active !== undefined ? customer.active : true,
     createdAt: new Date().toISOString(),
   }
@@ -17,7 +18,7 @@ export const addCustomerToQueue = async (customer) => {
 
   try {
     await flushQueue()
-  } catch (err) {
+  } catch {
     console.warn('Customer sync failed, customer remains local for later.')
   }
 
@@ -30,7 +31,7 @@ export const addCustomerToQueue = async (customer) => {
 export const addToQueue = async (sale) => {
   const saleRecord = {
     ...sale,
-    synced: false,
+    synced: 0,
     type: 'SALE',
     createdAt: new Date().toISOString()
   }
@@ -41,7 +42,7 @@ export const addToQueue = async (sale) => {
   // 2. Attempt background sync
   try {
     await flushQueue()
-  } catch (err) {
+  } catch {
     console.warn('Sync failed, sale remains in queue for later.')
   }
 }
@@ -50,7 +51,7 @@ export const addCustomerPaymentToQueue = async (payment) => {
   const paymentRecord = {
     ...payment,
     clientId: payment.clientId || crypto.randomUUID(),
-    synced: false,
+    synced: 0,
     type: 'CUSTOMER_PAYMENT',
     createdAt: payment.createdAt || new Date().toISOString(),
   }
@@ -59,7 +60,7 @@ export const addCustomerPaymentToQueue = async (payment) => {
 
   try {
     await flushQueue()
-  } catch (err) {
+  } catch {
     console.warn('Payment sync failed, payment remains in queue for later.')
   }
 
@@ -114,9 +115,17 @@ const runFlushQueue = async () => {
       customerIdMap
     )
     if (payments.length > 0) {
-      const response = await client.post('/v1/customer-payments/sync', { payments })
-      if (response.data.success) {
-        await db.syncQueue.where('id').anyOf(payments.map((payment) => payment.id)).modify({ synced: 1 })
+      try {
+        const response = await client.post('/v1/customer-payments/sync', { payments })
+        if (response.data.success) {
+          await db.syncQueue.where('id').anyOf(payments.map((p) => p.id)).delete()
+        }
+      } catch (err) {
+        await db.syncQueue.where('id').anyOf(payments.map((p) => p.id)).modify((p) => {
+          p.attempts = (p.attempts || 0) + 1
+          p.lastError = err.response?.data?.message || err.message
+        })
+        throw err
       }
     }
 
@@ -125,9 +134,24 @@ const runFlushQueue = async () => {
       customerIdMap
     )
     if (sales.length > 0) {
-      const response = await client.post('/v1/sales/sync', { sales })
-      if (response.data.success) {
-        await db.syncQueue.where('id').anyOf(sales.map((sale) => sale.id)).modify({ synced: 1 })
+      try {
+        const response = await client.post('/v1/sales/sync', { sales })
+        if (response.data.success) {
+          await db.syncQueue.where('id').anyOf(sales.map((s) => s.id)).delete()
+          
+          // Refresh products from server to update Dexie stock levels
+          try {
+            await getProducts()
+          } catch (pErr) {
+            console.warn('Failed to refresh products after sales sync:', pErr.message)
+          }
+        }
+      } catch (err) {
+        await db.syncQueue.where('id').anyOf(sales.map((s) => s.id)).modify((s) => {
+          s.attempts = (s.attempts || 0) + 1
+          s.lastError = err.response?.data?.message || err.message
+        })
+        throw err
       }
     }
   } catch (error) {

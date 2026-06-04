@@ -12,3 +12,9 @@ db.version(3).stores({
   customers: 'id, clientId, name, phone, active, synced',
   syncQueue: '++id, clientId, createdAt, synced, type'
 })
+
+db.version(4).stores({
+  products: 'id, name, categoryId',
+  customers: 'id, clientId, name, phone, active, synced',
+  syncQueue: '++id, clientId, createdAt, synced, type'
+})

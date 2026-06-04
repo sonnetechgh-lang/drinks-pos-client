@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getTodayTotal, getBestSellingProducts, getTodaySales, getOutstandingCredit } from '../api/sales'
 import { getProductCount, getLowStockProducts } from '../api/products'
 import { getTopDebtors } from '../api/customers'
 import { db } from '../db/dexie'
+import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import { ChevronRight, AlertCircle, Package, AlertTriangle, Banknote, CreditCard } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import Skeleton from '../components/Skeleton'
+import ErrorBanner from '../components/ErrorBanner'
 
 export default function Dashboard() {
   const [todayTotal, setTodayTotal] = useState(0)
@@ -17,9 +20,76 @@ export default function Dashboard() {
   const [todaySales, setTodaySales] = useState([])
   const [topDebtors, setTopDebtors] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  // ... (rest of the logic remains the same)
+
+  const fetchData = async () => {
+    try {
+      const [todayData, countData, lowStockData, creditData, bestData, lowData, salesData, debtorsData] = await Promise.all([
+        getTodayTotal(),
+        getProductCount(),
+        getLowStockProducts(100),
+        getOutstandingCredit(),
+        getBestSellingProducts(5),
+        getLowStockProducts(8),
+        getTodaySales(5),
+        getTopDebtors(5)
+      ])
+
+      setTodayTotal(todayData?.total || 0)
+      setProductCount(countData?.count || 0)
+      setLowStockCount(Array.isArray(lowStockData) ? lowStockData.length : 0)
+      setOutstandingCredit(creditData?.outstanding || 0)
+      setBestSellingProducts(Array.isArray(bestData) ? bestData : [])
+      setLowStockProducts(Array.isArray(lowData) ? lowData : [])
+      setTodaySales(Array.isArray(salesData) ? salesData : [])
+      setTopDebtors(Array.isArray(debtorsData) ? debtorsData : [])
+      setError('')
+    } catch (error) {
+      setError(error.response?.data?.message || error.message || 'Failed to load dashboard data.')
+      console.error('Failed to fetch dashboard data', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useRemoteRefresh(fetchData)
+
   const localProducts = useLiveQuery(() => db.products.toArray()) || []
   const localCustomers = useLiveQuery(() => db.customers.toArray()) || []
   const queuedRecords = useLiveQuery(() => db.syncQueue.where('synced').equals(0).toArray()) || []
+
+  if (loading) {
+    return (
+      <div className="mx-auto min-h-full max-w-7xl space-y-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-10 w-48" />
+          </div>
+          <Skeleton className="h-12 w-32 rounded-3xl" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 md:gap-5 xl:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32 rounded-3xl" />
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="xl:col-span-8 space-y-6">
+            <Skeleton className="h-64 rounded-3xl" />
+            <Skeleton className="h-64 rounded-3xl" />
+          </div>
+          <div className="xl:col-span-4 space-y-6">
+            <Skeleton className="h-80 rounded-3xl" />
+            <Skeleton className="h-80 rounded-3xl" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const todayKey = new Date().toDateString()
   const queuedSales = queuedRecords.filter((record) => !record.type || record.type === 'SALE')
@@ -52,39 +122,6 @@ export default function Dashboard() {
       .sort((a, b) => Number(b.balance || b.outstandingBalance || 0) - Number(a.balance || a.outstandingBalance || 0))
       .slice(0, 5)
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [todayData, countData, lowStockData, creditData, bestData, lowData, salesData, debtorsData] = await Promise.all([
-          getTodayTotal(),
-          getProductCount(),
-          getLowStockProducts(100),
-          getOutstandingCredit(),
-          getBestSellingProducts(5),
-          getLowStockProducts(8),
-          getTodaySales(5),
-          getTopDebtors(5)
-        ])
-
-        setTodayTotal(todayData?.total || 0)
-        setProductCount(countData?.count || 0)
-        setLowStockCount(Array.isArray(lowStockData) ? lowStockData.length : 0)
-        setOutstandingCredit(creditData?.outstanding || 0)
-        setBestSellingProducts(Array.isArray(bestData) ? bestData : [])
-        setLowStockProducts(Array.isArray(lowData) ? lowData : [])
-        setTodaySales(Array.isArray(salesData) ? salesData : [])
-        setTopDebtors(Array.isArray(debtorsData) ? debtorsData : [])
-      } catch (error) {
-        console.error('Failed to fetch dashboard data', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
-
-  if (loading) return <div className="p-8 text-center text-text-secondary">Loading dashboard...</div>
-
   return (
     <div className="mx-auto min-h-full max-w-7xl space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -99,6 +136,8 @@ export default function Dashboard() {
           <ChevronRight size={16} /> Go to POS
         </Link>
       </div>
+
+      <ErrorBanner message={error} onRetry={fetchData} />
 
       {/* Stat Cards - 2x2 on Mobile, 4 Columns on Desktop */}
       <div className="grid grid-cols-2 gap-4 md:gap-5 xl:grid-cols-4">

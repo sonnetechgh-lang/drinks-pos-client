@@ -1,15 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { businessDetails } from '../config/business'
 import {
   LayoutDashboard,
   ShoppingCart,
   Package,
   Settings,
   LogOut,
-  X,
   BarChart3,
+  ClipboardCheck,
 } from 'lucide-react'
-import { businessDetails } from '../config/business'
 
 const navSections = [
   {
@@ -29,6 +29,7 @@ const navSections = [
     label: 'Inventory',
     items: [
       { name: 'Products', path: '/products', icon: <Package size={20} />, roles: ['ADMIN'] },
+      { name: 'Stock Audit', path: '/stock-audit', icon: <ClipboardCheck size={20} />, roles: ['ADMIN'] },
     ],
   },
   {

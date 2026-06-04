@@ -41,6 +41,11 @@ export const getCategories = async () => {
   return response.data.data
 }
 
+export const createCategory = async (categoryData) => {
+  const response = await client.post('/v1/categories', categoryData)
+  return response.data.data
+}
+
 export const createProduct = async (productData) => {
   const response = await client.post('/v1/products', productData)
   return response.data.data
@@ -58,6 +63,11 @@ export const deleteProduct = async (id) => {
 
 export const updateStock = async (stockData) => {
   const response = await client.patch('/v1/stock/adjust', stockData)
+  return response.data.data
+}
+
+export const updateStockAudit = async (auditData) => {
+  const response = await client.post('/v1/stock/audit', auditData)
   return response.data.data
 }
 

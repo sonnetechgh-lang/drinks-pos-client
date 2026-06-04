@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Banknote, Plus, Search, X } from 'lucide-react'
 import { getCustomers, createCustomer, updateCustomer } from '../api/customers'
 import { addCustomerPaymentToQueue } from '../db/syncQueue'
+import { db } from '../db/dexie'
 import { useAuth } from '../hooks/useAuth'
+import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
+import ErrorBanner from '../components/ErrorBanner'
 
 export default function CustomersPage() {
   const { user } = useAuth()
@@ -22,27 +25,29 @@ export default function CustomersPage() {
   const [editPhone, setEditPhone] = useState('')
   const [editCreditLimit, setEditCreditLimit] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
 
-  const loadCustomers = async (query = '') => {
-    setLoading(true)
+  const loadCustomers = async (query = '', { silent = false } = {}) => {
+    if (!silent) setLoading(true)
     try {
       const data = await getCustomers(query)
       setCustomers(data)
+      setError('')
     } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to load customers.')
       console.error(err)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    loadCustomers()
-  }, [])
+  useRemoteRefresh(() => loadCustomers(search, { silent: customers.length > 0 }))
 
   const handleSearch = async (value) => {
     setSearch(value)
@@ -54,6 +59,7 @@ export default function CustomersPage() {
     if (!name.trim()) return
 
     setSaving(true)
+    setFormError('')
     try {
       const newCustomer = await createCustomer({
         name: name.trim(),
@@ -61,6 +67,7 @@ export default function CustomersPage() {
         notes: notes.trim(),
         creditLimit: Number(creditLimit) || 0,
       })
+      await db.customers.put({ ...newCustomer, synced: 1 })
       setCustomers((prev) => [newCustomer, ...prev])
       setName('')
       setPhone('')
@@ -68,6 +75,7 @@ export default function CustomersPage() {
       setCreditLimit('')
       setShowCreateModal(false)
     } catch (err) {
+      setFormError(err.response?.data?.message || err.message || 'Failed to create customer.')
       console.error(err)
     } finally {
       setSaving(false)
@@ -98,7 +106,7 @@ export default function CustomersPage() {
       setMomoReference('')
       setPaymentNote('')
       setShowPaymentModal(false)
-    } catch (err) {
+    } catch {
       alert('Failed to record payment')
     } finally {
       setSavingPayment(false)
@@ -168,6 +176,8 @@ export default function CustomersPage() {
 
       <div className={`grid gap-6 ${editingCustomer ? 'xl:grid-cols-[1.6fr_1fr]' : ''}`}>
         <section className="space-y-6">
+          <ErrorBanner message={error} onRetry={() => loadCustomers(search)} />
+
           <div className="card p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -394,6 +404,11 @@ export default function CustomersPage() {
             </div>
 
             <form onSubmit={handleCreate} className="space-y-4">
+              {formError && (
+                <div className="rounded-2xl border border-danger/20 bg-danger-light/30 p-3 text-sm font-semibold text-danger">
+                  {formError}
+                </div>
+              )}
               <div>
                 <label className="mb-2 block text-sm font-semibold text-text-primary">Name</label>
                 <input

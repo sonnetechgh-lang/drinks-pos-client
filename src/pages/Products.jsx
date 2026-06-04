@@ -1,16 +1,23 @@
-import { useState, useEffect, useMemo } from 'react'
-import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, updateStock } from '../api/products'
+import { useState, useMemo } from 'react'
+import { getProducts, getCategories, createCategory, createProduct, updateProduct, deleteProduct, updateStock } from '../api/products'
 import { Plus, Edit, Trash2, Package, Search, Filter, Info, FileText, Table } from 'lucide-react'
 import { exportToExcel, exportToPDF } from '../utils/exportUtils'
+import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
+import Skeleton from '../components/Skeleton'
+import ErrorBanner from '../components/ErrorBanner'
 
-const defaultPackageOptions = [{ name: 'Unit', unitsPerBase: 1, price: '', isDefault: true, active: true }]
-
+const defaultPackageOptions = [{ name: 'Unit', unitsPerBase: 1, price: '', wholesalePrice: '', isDefault: true, active: true }]
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isStockModalOpen, setIsStockModalOpen] = useState(false)
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [newCategoryData, setNewCategoryData] = useState({ name: '', hasPackaging: false })
+  const [categoryError, setCategoryError] = useState('')
+  const [categorySubmitting, setCategorySubmitting] = useState(false)
   const [currentProduct, setCurrentProduct] = useState(null)
   
   // Search and Filter State
@@ -28,13 +35,14 @@ export default function ProductsPage() {
     cartonCount: 0,
     bottlePrice: '',
     cartonPrice: '',
+    cartonWholesalePrice: '',
     packageOptions: defaultPackageOptions,
   })
   const [stockData, setStockData] = useState({ quantity: 1, type: 'RESTOCK', note: '' })
 
-  const fetchData = async () => {
+  const fetchData = async ({ silent = false } = {}) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const [productsData, categoriesData] = await Promise.all([
         getProducts(),
         getCategories(),
@@ -42,16 +50,17 @@ export default function ProductsPage() {
 
       setProducts(productsData)
       setCategories(categoriesData)
-    } catch (_err) {
-      console.error('Failed to fetch data', _err)
+      setError('')
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || 'Failed to load products and categories.'
+      setError(message)
+      console.error('Failed to fetch data', err)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useRemoteRefresh(() => fetchData({ silent: products.length > 0 }))
 
   // Filtered products list
   const filteredProducts = useMemo(() => {
@@ -70,11 +79,12 @@ export default function ProductsPage() {
           if (option.unitsPerBase === 1) acc.bottlePrice = option.price
           if (option.name?.toLowerCase().includes('carton')) {
             acc.cartonPrice = option.price
+            acc.cartonWholesalePrice = option.wholesalePrice || ''
             acc.cartonUnits = option.unitsPerBase
           }
           return acc
         },
-        { bottlePrice: '', cartonPrice: '', cartonUnits: 24 }
+        { bottlePrice: '', cartonPrice: '', cartonWholesalePrice: '', cartonUnits: 24 }
       )
       const cartonCount = alcoholicOptions.cartonUnits
         ? Math.floor(product.stock / alcoholicOptions.cartonUnits)
@@ -92,9 +102,10 @@ export default function ProductsPage() {
         cartonCount,
         bottlePrice: alcoholicOptions.bottlePrice || product.price || '',
         cartonPrice: alcoholicOptions.cartonPrice || '',
+        cartonWholesalePrice: alcoholicOptions.cartonWholesalePrice || '',
         packageOptions: product.packageOptions?.length
-          ? product.packageOptions.map((option) => ({ ...option, price: option.price }))
-          : [{ name: 'Unit', unitsPerBase: 1, price: product.price, isDefault: true, active: true }],
+          ? product.packageOptions.map((option) => ({ ...option, price: option.price, wholesalePrice: option.wholesalePrice || '' }))
+          : [{ name: 'Unit', unitsPerBase: 1, price: product.price, wholesalePrice: '', isDefault: true, active: true }],
       })
     } else {
       setCurrentProduct(null)
@@ -109,6 +120,7 @@ export default function ProductsPage() {
         cartonCount: 0,
         bottlePrice: '',
         cartonPrice: '',
+        cartonWholesalePrice: '',
         packageOptions: defaultPackageOptions,
       })
     }
@@ -122,19 +134,40 @@ export default function ProductsPage() {
   }
 
   const currentCategory = categories.find((category) => category.id === formData.categoryId)
-  const isAlcoholic = currentCategory?.name === 'Alcoholic'
+  const isPackaged = currentCategory?.hasPackaging
 
-  const calculatedStock = isAlcoholic && Number(formData.cartonCount) > 0
+  const calculatedStock = isPackaged && Number(formData.cartonCount) > 0
     ? Number(formData.cartonCount) * Number(formData.cartonUnits || 1)
     : Number(formData.stock)
+
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault()
+    if (!newCategoryData.name.trim()) return
+    setCategorySubmitting(true)
+    setCategoryError('')
+    try {
+      const createdCategory = await createCategory(newCategoryData)
+      setCategories((prev) => [...prev, createdCategory])
+      setFormData((prev) => ({ ...prev, categoryId: createdCategory.id }))
+      setNewCategoryData({ name: '', hasPackaging: false })
+      setIsCategoryModalOpen(false)
+    } catch (err) {
+      setCategoryError(err.response?.data?.message || 'Failed to create category')
+    } finally {
+      setCategorySubmitting(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
       const category = categories.find((categoryItem) => categoryItem.id === formData.categoryId)
-      const isAlcoholicCategory = category?.name === 'Alcoholic'
+      if (!category) {
+        throw new Error('Select a category before saving the product')
+      }
+      const isPackagedCategory = category?.hasPackaging
       const defaultIndex = formData.packageOptions.findIndex((option) => option.isDefault)
-      const packageOptions = isAlcoholicCategory
+      const packageOptions = isPackagedCategory
         ? [
             {
               name: 'Single Bottle',
@@ -147,6 +180,7 @@ export default function ProductsPage() {
               name: 'Carton',
               unitsPerBase: Number(formData.cartonUnits) || 1,
               price: Number(formData.cartonPrice) || 0,
+              wholesalePrice: Number(formData.cartonWholesalePrice) || null,
               isDefault: false,
               active: true,
             },
@@ -155,13 +189,14 @@ export default function ProductsPage() {
             name: option.name || 'Unit',
             unitsPerBase: Number(option.unitsPerBase) || 1,
             price: Number(option.price || formData.price) || 0,
+            wholesalePrice: Number(option.wholesalePrice) || null,
             isDefault: index === (defaultIndex >= 0 ? defaultIndex : 0),
             active: option.active !== false,
           }))
 
       const payload = {
         name: formData.name,
-        price: Number(isAlcoholicCategory ? formData.bottlePrice : formData.price) || 0,
+        price: Number(isPackagedCategory ? formData.bottlePrice : formData.price) || 0,
         categoryId: formData.categoryId,
         baseUnit: formData.baseUnit,
         stock: calculatedStock,
@@ -176,8 +211,8 @@ export default function ProductsPage() {
       }
       setIsModalOpen(false)
       fetchData()
-    } catch (_err) {
-      alert('Operation failed')
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Operation failed')
     }
   }
 
@@ -196,7 +231,7 @@ export default function ProductsPage() {
   const addPackageOption = () => {
     setFormData((prev) => ({
       ...prev,
-      packageOptions: [...prev.packageOptions, { name: 'Box', unitsPerBase: 24, price: '', isDefault: false, active: true }],
+      packageOptions: [...prev.packageOptions, { name: 'Box', unitsPerBase: 24, price: '', wholesalePrice: '', isDefault: false, active: true }],
     }))
   }
 
@@ -216,7 +251,7 @@ export default function ProductsPage() {
       })
       setIsStockModalOpen(false)
       fetchData()
-    } catch (_err) {
+    } catch {
       alert('Stock update failed')
     }
   }
@@ -226,7 +261,7 @@ export default function ProductsPage() {
       try {
         await deleteProduct(id)
         fetchData()
-      } catch (_err) {
+      } catch {
         alert('Delete failed')
       }
     }
@@ -247,7 +282,7 @@ export default function ProductsPage() {
     }))
     try {
       await exportToExcel(data, `Products_Export_${new Date().toISOString().split('T')[0]}`, headers)
-    } catch (_err) {
+    } catch {
       alert('Excel export failed')
     }
   }
@@ -267,12 +302,45 @@ export default function ProductsPage() {
     }))
     try {
       await exportToPDF(data, `Products_Export_${new Date().toISOString().split('T')[0]}`, 'Product Inventory Report', headers)
-    } catch (_err) {
+    } catch {
       alert('PDF export failed')
     }
   }
 
-  if (loading && products.length === 0) return <div className="p-8 text-center text-text-secondary">Loading...</div>
+  if (loading && products.length === 0) {
+    return (
+      <div className="min-h-full space-y-8 pb-10">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-10 w-48" />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Skeleton className="h-14 w-32 rounded-2xl" />
+            <Skeleton className="h-14 w-32 rounded-2xl" />
+            <Skeleton className="h-14 w-44 rounded-2xl" />
+          </div>
+        </div>
+
+        <div className="card p-6">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <Skeleton className="h-12 w-full max-w-md rounded-full" />
+            <div className="flex items-center gap-2">
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 w-24 rounded-full" />)}
+            </div>
+          </div>
+        </div>
+
+        <div className="card overflow-hidden">
+          <div className="space-y-4 p-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <Skeleton key={i} className="h-16 w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-full space-y-8 pb-10">
@@ -303,6 +371,8 @@ export default function ProductsPage() {
           </button>
         </div>
       </div>
+
+      <ErrorBanner message={error} onRetry={() => fetchData()} />
 
       {/* Search and Filters Card */}
       <div className="card p-6">
@@ -353,7 +423,7 @@ export default function ProductsPage() {
             </thead>
             <tbody className="divide-y divide-border border-t border-border">
               {filteredProducts.map((product) => {
-                const isAlcoholicProd = product.category?.name === 'Alcoholic'
+                const isPackagedProd = product.category?.hasPackaging
                 const cartonOption = product.packageOptions?.find(o => o.name?.toLowerCase().includes('carton'))
                 const unitsPerCarton = cartonOption?.unitsPerBase || 24
                 const cartonCount = Math.floor(product.stock / unitsPerCarton)
@@ -370,7 +440,7 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        isAlcoholicProd ? 'bg-purple-50 text-purple-600' : 'bg-green-50 text-green-600'
+                        isPackagedProd ? 'bg-purple-50 text-purple-600' : 'bg-green-50 text-green-600'
                       }`}>
                         {product.category?.name}
                       </span>
@@ -396,7 +466,7 @@ export default function ProductsPage() {
                         <span className={`text-sm font-black ${product.stock <= lowStockThreshold ? 'text-danger' : 'text-brand-blue'}`}>
                           {product.stock} Units
                         </span>
-                        {isAlcoholicProd && (
+                        {isPackagedProd && (
                           <span className="text-[10px] font-medium text-text-secondary uppercase tracking-wider">
                             {cartonCount} Cartons {remainingUnits > 0 ? `+ ${remainingUnits} u` : ''}
                           </span>
@@ -465,7 +535,7 @@ export default function ProductsPage() {
           <div className="w-full max-w-xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-black text-text-primary">{currentProduct ? 'Edit Product' : 'Add New Product'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="rounded-full p-2 hover:bg-gray-100 transition-colors">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="rounded-full p-2 hover:bg-gray-100 transition-colors">
                 <Trash2 size={20} className="text-text-muted rotate-45" />
               </button>
             </div>
@@ -484,7 +554,16 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-text-primary">Category</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-bold text-text-primary">Category</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryModalOpen(true)}
+                      className="text-xs font-bold text-brand-blue hover:underline"
+                    >
+                      + Add New
+                    </button>
+                  </div>
                   {categories.length > 0 ? (
                     <select
                       required
@@ -498,8 +577,15 @@ export default function ProductsPage() {
                       ))}
                     </select>
                   ) : (
-                    <div className="rounded-2xl border border-danger/20 bg-danger-light/10 p-3 text-xs text-danger font-medium">
-                      No valid categories found (Alcoholic/Non-Alcoholic). Please seed the database or contact admin.
+                    <div className="flex flex-col gap-2 rounded-2xl border border-danger/20 bg-danger-light/10 p-3">
+                      <span className="text-xs text-danger font-medium">No valid categories found.</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        className="self-start text-xs font-bold text-brand-blue hover:underline"
+                      >
+                        + Create a Category
+                      </button>
                     </div>
                   )}
                 </div>
@@ -515,7 +601,6 @@ export default function ProductsPage() {
                   >
                     <option value="UNIT">Unit</option>
                     <option value="BOTTLE">Bottle</option>
-                    <option value="CAN">Can</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -533,7 +618,7 @@ export default function ProductsPage() {
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
-                {!isAlcoholic && (
+                {!isPackaged && (
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-text-primary">Default Price (GH₵)</label>
                     <input
@@ -549,11 +634,11 @@ export default function ProductsPage() {
                 )}
               </div>
 
-              {isAlcoholic ? (
+              {isPackaged ? (
                 <div className="space-y-6 rounded-[1.5rem] bg-brand-blue-light/20 p-6 border border-brand-blue-light/50">
                   <div className="flex items-center gap-2 text-brand-blue mb-2">
                     <Info size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Alcoholic Product Configuration</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">{currentCategory?.name} Configuration</span>
                   </div>
                   
                   <div className="grid gap-6 md:grid-cols-2">
@@ -594,6 +679,21 @@ export default function ProductsPage() {
                       />
                     </div>
                     <div className="space-y-2">
+                      <label className="text-sm font-bold text-text-primary">Wholesale Carton Price (GHâ‚µ)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.cartonWholesalePrice}
+                        onChange={(e) => setFormData({ ...formData, cartonWholesalePrice: e.target.value })}
+                        placeholder="Optional"
+                        className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2">
                       <label className="text-sm font-bold text-text-primary">Initial Cartons</label>
                       <input
                         type="number"
@@ -629,7 +729,7 @@ export default function ProductsPage() {
                 )
               )}
 
-              {!isAlcoholic && (
+              {!isPackaged && (
                 <div className="space-y-4 rounded-[1.5rem] bg-gray-50 p-6 border border-border">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-bold text-text-primary uppercase tracking-wider">Package Options</label>
@@ -645,7 +745,7 @@ export default function ProductsPage() {
                   <div className="space-y-3">
                     {formData.packageOptions.map((option, index) => (
                       <div key={index} className="grid grid-cols-12 gap-2 items-center rounded-xl bg-white p-3 border border-border shadow-sm">
-                        <div className="col-span-4">
+                        <div className="col-span-3">
                           <input
                             value={option.name}
                             onChange={(e) => updatePackageOption(index, 'name', e.target.value)}
@@ -653,7 +753,7 @@ export default function ProductsPage() {
                             className="w-full rounded-lg border border-border px-3 py-2 text-xs outline-none focus:border-brand-blue"
                           />
                         </div>
-                        <div className="col-span-3">
+                        <div className="col-span-2">
                           <input
                             type="number"
                             min="1"
@@ -674,7 +774,18 @@ export default function ProductsPage() {
                             className="w-full rounded-lg border border-border px-3 py-2 text-xs outline-none focus:border-brand-blue"
                           />
                         </div>
-                        <div className="col-span-2 flex justify-center">
+                        <div className="col-span-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={option.wholesalePrice || ''}
+                            onChange={(e) => updatePackageOption(index, 'wholesalePrice', e.target.value)}
+                            placeholder="Wholesale"
+                            className="w-full rounded-lg border border-border px-3 py-2 text-xs outline-none focus:border-brand-blue"
+                          />
+                        </div>
+                        <div className="col-span-1 flex justify-center">
                           {formData.packageOptions.length > 1 && (
                             <button type="button" onClick={() => removePackageOption(index)} className="text-danger hover:scale-110 transition-transform">
                               <Trash2 size={16} />

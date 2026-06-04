@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Banknote, Plus, Search, X } from 'lucide-react'
+import { Banknote, Ban, Pencil, Plus, Search, UserCheck, X } from 'lucide-react'
 import { getCustomers, createCustomer, updateCustomer } from '../api/customers'
 import { addCustomerPaymentToQueue } from '../db/syncQueue'
 import { db } from '../db/dexie'
@@ -160,8 +160,8 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Accounts</p>
           <h1 className="mt-3 text-3xl font-black text-text-primary">Customers</h1>
@@ -184,7 +184,7 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div className={`grid gap-6 ${editingCustomer ? 'xl:grid-cols-[1.6fr_1fr]' : ''}`}>
+      <div className={`grid gap-6 ${editingCustomer ? 'xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]' : ''}`}>
         <section className="space-y-6">
           <ErrorBanner message={error} onRetry={() => loadCustomers(search)} />
 
@@ -202,7 +202,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Saved customers</p>
-                <h2 className="mt-2 text-xl font-black text-text-primary">Customer list</h2>
+                <h2 className="mt-2 text-xl font-black text-text-primary">{customers.length} customers</h2>
               </div>
               <div className="relative w-full max-w-sm">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" />
@@ -216,17 +216,17 @@ export default function CustomersPage() {
             </div>
           </div>
 
-          <div className="card overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
             <div className="hidden sm:block overflow-x-auto">
-              <table className="min-w-full text-left">
-                <thead className="bg-brand-blue-light/40 text-xs uppercase tracking-[0.18em] text-text-secondary">
+              <table className="min-w-full table-fixed text-left">
+                <thead className="bg-slate-50 text-xs uppercase text-text-secondary">
                   <tr>
-                    <th className="px-6 py-4">Customer</th>
-                    <th className="px-6 py-4">Contact</th>
-                    <th className="px-6 py-4">Credit Limit</th>
-                    <th className="px-6 py-4">Balance</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Actions</th>
+                    <th className="w-[28%] px-5 py-3">Customer</th>
+                    <th className="w-[20%] px-5 py-3">Contact</th>
+                    <th className="w-[15%] px-5 py-3 text-right">Credit Limit</th>
+                    <th className="w-[15%] px-5 py-3 text-right">Balance</th>
+                    <th className="w-[10%] px-5 py-3">Status</th>
+                    <th className="w-[12%] px-5 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y border-t border-border">
@@ -240,44 +240,47 @@ export default function CustomersPage() {
                     </tr>
                   ) : (
                     customers.map((customer) => (
-                      <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-text-primary">{customer.name}</div>
-                          <div className="mt-2 text-xs text-text-secondary">{customer.clientId ? customer.clientId : `CUST-${customer.id.slice(0, 8).toUpperCase()}`}</div>
+                      <tr key={customer.id} className="transition-colors hover:bg-slate-50">
+                        <td className="px-5 py-4">
+                          <div className="truncate font-semibold text-text-primary">{customer.name}</div>
+                          <div className="mt-1 truncate text-xs text-text-secondary">{customer.clientId ? customer.clientId : `CUST-${customer.id.slice(0, 8).toUpperCase()}`}</div>
                         </td>
-                        <td className="px-6 py-4 text-text-secondary">
-                          <div>{customer.phone || '-'}</div>
-                          {customer.notes && <div className="mt-1 text-xs text-text-secondary">{customer.notes}</div>}
+                        <td className="px-5 py-4 text-sm text-text-secondary">
+                          <div className="truncate">{customer.phone || '-'}</div>
+                          {customer.notes && <div className="mt-1 truncate text-xs text-text-secondary">{customer.notes}</div>}
                         </td>
-                        <td className="px-6 py-4 text-text-primary">GH₵ {Number(customer.creditLimit || 0).toFixed(2)}</td>
-                        <td className="px-6 py-4 text-text-primary">GH₵ {Number(customer.balance || 0).toFixed(2)}</td>
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-4 text-right font-semibold text-text-primary">GH₵ {Number(customer.creditLimit || 0).toFixed(2)}</td>
+                        <td className={`px-5 py-4 text-right font-semibold ${Number(customer.balance || 0) >= 0 ? 'text-success' : 'text-danger'}`}>GH₵ {Number(customer.balance || 0).toFixed(2)}</td>
+                        <td className="px-5 py-4">
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${customer.active ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`}>
                             {customer.active ? 'Active' : 'Blocked'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 space-x-2">
+                        <td className="px-5 py-4">
+                          <div className="flex justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => handleEditClick(customer)}
-                            className="rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white text-text-secondary transition hover:border-brand-blue hover:text-brand-blue"
+                            title="Edit customer"
+                            aria-label={`Edit ${customer.name}`}
                           >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEditClick(customer)}
-                            className="rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
-                          >
-                            Limit
+                            <Pencil size={15} />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleToggleActive(customer)}
-                            className="rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+                              customer.active
+                                ? 'border-danger/20 bg-danger-light/30 text-danger hover:bg-danger-light'
+                                : 'border-success/20 bg-success-light/40 text-success hover:bg-success-light'
+                            }`}
+                            title={customer.active ? 'Block customer' : 'Unblock customer'}
+                            aria-label={`${customer.active ? 'Block' : 'Unblock'} ${customer.name}`}
                           >
-                            {customer.active ? 'Block' : 'Unblock'}
+                            {customer.active ? <Ban size={15} /> : <UserCheck size={15} />}
                           </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -329,15 +332,20 @@ export default function CustomersPage() {
                       <button
                         type="button"
                         onClick={() => handleEditClick(customer)}
-                        className="flex-1 rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
+                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
                       >
-                        Edit
+                        <Pencil size={14} /> Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => handleToggleActive(customer)}
-                        className="flex-1 rounded-full border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
+                        className={`inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold transition ${
+                          customer.active
+                            ? 'bg-danger-light text-danger hover:bg-danger-light/80'
+                            : 'bg-success-light text-success hover:bg-success-light/80'
+                        }`}
                       >
+                        {customer.active ? <Ban size={14} /> : <UserCheck size={14} />}
                         {customer.active ? 'Block' : 'Unblock'}
                       </button>
                     </div>

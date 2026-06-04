@@ -6,8 +6,8 @@ import { getProducts } from '../api/products'
 import { createCustomer, getCustomers } from '../api/customers'
 import { useAuth } from '../hooks/useAuth'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
-import { generateReceipt } from '../utils/receiptGenerator'
-import { ShoppingCart, Search, Trash2, Plus, Minus, Printer, Wifi, WifiOff } from 'lucide-react'
+import { getReceiptHtml, printReceipt } from '../utils/receiptGenerator'
+import { ShoppingCart, Search, Trash2, Plus, Minus, Printer, Wifi, WifiOff, X } from 'lucide-react'
 
 export default function Home() {
   const { user } = useAuth()
@@ -28,6 +28,7 @@ export default function Home() {
   const [discount, setDiscount] = useState('')
   const [momoReference, setMomoReference] = useState('')
   const [checkoutMessage, setCheckoutMessage] = useState(null)
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false)
 
   const liveProducts = useLiveQuery(() => db.products.toArray())
   const liveCustomers = useLiveQuery(() => db.customers.where('active').notEqual(0).toArray())
@@ -323,7 +324,7 @@ export default function Home() {
           ? 'Sale completed and synced. Stock has been updated.'
           : `Sale saved locally. Stock was updated here and sync will retry. ${result.message || ''}`.trim(),
       })
-      generateReceipt(sale)
+      setShowReceiptPreview(true)
     } catch {
       setCheckoutMessage({ type: 'error', text: 'Failed to save transaction locally.' })
     }
@@ -331,8 +332,14 @@ export default function Home() {
 
   const handlePrint = () => {
     if (lastSale) {
-      generateReceipt(lastSale)
+      setShowReceiptPreview(true)
     }
+  }
+
+  const handleConfirmPrint = () => {
+    if (!lastSale) return
+    printReceipt(lastSale)
+    setShowReceiptPreview(false)
   }
 
   return (
@@ -715,6 +722,7 @@ export default function Home() {
                   setCart([])
                   setLastSale(null)
                   setCheckoutMessage(null)
+                  setShowReceiptPreview(false)
                   setPaidAmount('')
                   setSelectedCustomerId('')
                   setCustomerSearch('')
@@ -746,6 +754,54 @@ export default function Home() {
           </button>
         </div>
       </div>
+      )}
+
+      {showReceiptPreview && lastSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-text-secondary">Receipt Preview</p>
+                <h2 className="mt-1 text-lg font-black text-text-primary">80mm thermal receipt</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReceiptPreview(false)}
+                className="rounded-2xl border border-border bg-white p-2 text-text-secondary transition hover:bg-gray-50"
+                aria-label="Close receipt preview"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto bg-slate-100 px-4 py-5">
+              <div className="mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
+                <iframe
+                  title="Receipt preview"
+                  srcDoc={getReceiptHtml(lastSale)}
+                  className="h-[620px] w-full border-0 bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-border bg-white px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setShowReceiptPreview(false)}
+                className="rounded-2xl border border-border bg-white px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPrint}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark"
+              >
+                <Printer size={17} /> Print
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

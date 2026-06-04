@@ -96,15 +96,15 @@ const buildReceiptHtml = (sale, settings) => {
         margin: 0;
         background: #fff;
         color: #000;
-        font-family: "Courier New", Courier, monospace;
+        font-family: Arial, "Helvetica Neue", sans-serif;
         font-size: 11px;
-        line-height: 1.35;
+        line-height: 1.3;
       }
 
       .receipt {
         width: ${RECEIPT_WIDTH_MM}mm;
         min-height: 100%;
-        padding: 4mm;
+        padding: 3mm 4mm;
       }
 
       .center {
@@ -116,7 +116,7 @@ const buildReceiptHtml = (sale, settings) => {
       }
 
       .shop-name {
-        font-size: 15px;
+        font-size: 17px;
         font-weight: 700;
         line-height: 1.2;
         text-transform: uppercase;
@@ -125,12 +125,12 @@ const buildReceiptHtml = (sale, settings) => {
       .address,
       .muted {
         color: #111;
-        font-size: 10px;
+        font-size: 9.5px;
       }
 
       .divider {
-        border-top: 1px dashed #000;
-        margin: 7px 0;
+        border-top: 1px dashed #111;
+        margin: 6px 0;
       }
 
       .meta-row,
@@ -149,7 +149,7 @@ const buildReceiptHtml = (sale, settings) => {
 
       .item {
         break-inside: avoid;
-        padding: 4px 0;
+        padding: 3px 0;
       }
 
       .item-name {
@@ -162,7 +162,7 @@ const buildReceiptHtml = (sale, settings) => {
       }
 
       .total {
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 700;
       }
 
@@ -261,16 +261,16 @@ const printInCurrentPage = (receiptHtml) => {
     @media print {
       @page { size: ${RECEIPT_WIDTH_MM}mm 297mm; margin: 0; }
       body > *:not(#receipt-print-root) { display: none !important; }
-      #receipt-print-root {
-        display: block !important;
-        width: ${RECEIPT_WIDTH_MM}mm;
-        margin: 0;
-        background: #fff;
-        color: #000;
-        font-family: "Courier New", Courier, monospace;
-        font-size: 11px;
-        line-height: 1.35;
-      }
+        #receipt-print-root {
+          display: block !important;
+          width: ${RECEIPT_WIDTH_MM}mm;
+          margin: 0;
+          background: #fff;
+          color: #000;
+          font-family: Arial, "Helvetica Neue", sans-serif;
+          font-size: 11px;
+          line-height: 1.3;
+        }
       #receipt-print-root .receipt {
         width: ${RECEIPT_WIDTH_MM}mm;
         padding: 3mm;
@@ -302,10 +302,16 @@ const printInNewWindow = (receiptHtml) => {
   }
 }
 
-export const generateReceipt = (sale) => {
+export const getReceiptHtml = (sale) => {
   const settings = getReceiptSettings()
-  const receiptHtml = buildReceiptHtml(sale, settings)
+  return buildReceiptHtml(sale, settings)
+}
+
+export const printReceipt = (sale) => {
+  const receiptHtml = getReceiptHtml(sale)
 
   printInNewWindow(receiptHtml)
   return true
 }
+
+export const generateReceipt = printReceipt

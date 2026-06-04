@@ -6,8 +6,12 @@ const productionBaseUrl = 'https://drinks-pos-sever.onrender.com'
 const isLocalHost = typeof window !== 'undefined'
   && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
 const defaultBaseUrl = isLocalHost ? localBaseUrl : productionBaseUrl
+const configuredBaseUrl = import.meta.env.VITE_API_URL
+const baseURL = !isLocalHost && configuredBaseUrl?.includes('localhost')
+  ? productionBaseUrl
+  : configuredBaseUrl || defaultBaseUrl
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || defaultBaseUrl,
+  baseURL,
 })
 
 let authToken = typeof localStorage !== 'undefined' ? localStorage.getItem(AUTH_TOKEN_KEY) : null

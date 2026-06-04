@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Moon, Search, Sun, UserCircle, Menu } from 'lucide-react'
+import { LogOut, Moon, Search, Sun, UserCircle, Menu } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import Sidebar from './Sidebar'
@@ -15,7 +15,7 @@ const pageTitles = {
 }
 
 export default function Layout() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [search, setSearch] = useState('')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -39,9 +39,20 @@ export default function Layout() {
               <p className="text-xs uppercase tracking-[0.28em] text-text-secondary">Welcome back</p>
               <h1 className="truncate text-lg font-black text-text-primary">{pageTitle}</h1>
             </div>
-            <Link to="/settings" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-gray-50">
-              <UserCircle size={18} className="text-brand-blue" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link to="/settings" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-gray-50">
+                <UserCircle size={18} className="text-brand-blue" />
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                aria-label="Logout"
+                title="Logout"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-danger/20 bg-white text-danger transition hover:bg-danger-light"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -76,6 +87,15 @@ export default function Layout() {
                 <UserCircle size={20} className="text-brand-blue" />
                 <span className="hidden sm:inline text-sm font-semibold text-text-primary">{user?.name}</span>
               </Link>
+              <button
+                type="button"
+                onClick={logout}
+                aria-label="Logout"
+                title="Logout"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-danger/20 bg-white text-danger transition hover:bg-danger-light"
+              >
+                <LogOut size={18} />
+              </button>
             </div>
           </div>
         </header>

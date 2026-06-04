@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   Package,
   Settings,
-  LogOut,
   BarChart3,
   ClipboardCheck,
 } from 'lucide-react'
@@ -46,7 +45,7 @@ const navSections = [
 ]
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const roleBadge = user?.role === 'ADMIN'
     ? 'bg-brand-blue-light text-brand-blue'
     : 'bg-warning-light text-warning'
@@ -102,12 +101,6 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                 </div>
               </div>
               <div className={`mt-4 inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold ${roleBadge}`}> {user?.role === 'ADMIN' ? 'Admin' : 'Cashier'} </div>
-              <button
-                onClick={logout}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-danger ring-1 ring-danger-light hover:bg-danger-light transition"
-              >
-                <LogOut size={16} /> Logout
-              </button>
             </div>
           </div>
         </div>
@@ -136,12 +129,6 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                 <p className="text-xs uppercase tracking-[0.24em] text-text-secondary">{user?.role}</p>
               </div>
             </div>
-            <button
-              onClick={logout}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-danger ring-1 ring-danger-light hover:bg-danger-light transition"
-            >
-              <LogOut size={16} /> Logout
-            </button>
           </div>
         </div>
       </aside>

@@ -1,7 +1,11 @@
 import axios from 'axios'
 
 const AUTH_TOKEN_KEY = 'palace-line-auth-token'
-const defaultBaseUrl = 'http://localhost:4000'
+const localBaseUrl = 'http://localhost:4000'
+const productionBaseUrl = 'https://drinks-pos-sever.onrender.com'
+const isLocalHost = typeof window !== 'undefined'
+  && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+const defaultBaseUrl = isLocalHost ? localBaseUrl : productionBaseUrl
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_URL || defaultBaseUrl,
 })

@@ -31,8 +31,23 @@ export const getOutstandingCredit = async () => {
 
 // Reports: Sales by date range
 export const getSalesReport = async (startDate, endDate, paymentStatus, limit = 50, offset = 0) => {
+  const toDayBoundary = (value, boundary) => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+
+    const [year, month, day] = value.split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    if (boundary === 'end') date.setHours(23, 59, 59, 999)
+    return date.toISOString()
+  }
+
   const response = await client.get('/v1/sales/reports', {
-    params: { startDate, endDate, paymentStatus, limit, offset }
+    params: {
+      startDate: toDayBoundary(startDate, 'start'),
+      endDate: toDayBoundary(endDate, 'end'),
+      paymentStatus,
+      limit,
+      offset,
+    }
   })
   return response.data.data
 }

@@ -27,7 +27,7 @@ export default function Reports() {
         const result = await getSalesReport(startDate, endDate, paymentStatus || undefined)
         setSalesData(Array.isArray(result) ? result : [])
         setTotalSales(result?.length || 0)
-        const revenue = (Array.isArray(result) ? result : []).reduce((sum, sale) => sum + (sale.total || 0), 0)
+        const revenue = (Array.isArray(result) ? result : []).reduce((sum, sale) => sum + Number(sale.total || 0), 0)
         setTotalRevenue(revenue)
       } else if (reportType === 'best-selling') {
         const result = await getBestSellingProducts(20)

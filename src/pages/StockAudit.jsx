@@ -12,7 +12,8 @@ export default function StockAudit() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [auditData, setAuditData] = useState({}) // { productId: actualQuantity }
-  const [submitting, setSubmitting] = useState(false)
+  const [submittingProductId, setSubmittingProductId] = useState(null)
+  const [showChangedOnly, setShowChangedOnly] = useState(false)
   const [message, setMessage] = useState(null)
   const [error, setError] = useState('')
 
@@ -47,7 +48,7 @@ export default function StockAudit() {
     const actualQuantity = auditData[product.id]
     if (actualQuantity === undefined || actualQuantity === '') return
 
-    setSubmitting(true)
+    setSubmittingProductId(product.id)
     try {
       await updateStockAudit({
         productId: product.id,
@@ -70,13 +71,17 @@ export default function StockAudit() {
         text: error.response?.data?.message || error.message || 'Failed to update stock. Please try again.',
       })
     } finally {
-      setSubmitting(false)
+      setSubmittingProductId(null)
     }
   }
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredProducts = products
+    .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter((product) => {
+      if (!showChangedOnly) return true
+      const currentInput = auditData[product.id]
+      return currentInput !== undefined && currentInput !== '' && Number(currentInput) !== Number(product.stock)
+    })
   const pendingAudits = Object.values(auditData).filter((value) => value !== undefined && value !== '').length
 
   if (loading && products.length === 0) {
@@ -123,6 +128,13 @@ export default function StockAudit() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => setShowChangedOnly((value) => !value)}
+            className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${showChangedOnly ? 'border-brand-blue bg-brand-blue-light text-brand-blue' : 'border-border bg-white text-text-secondary hover:border-brand-blue hover:text-brand-blue'}`}
+          >
+            {showChangedOnly ? 'Showing changed' : 'Show changed only'}
+          </button>
         </div>
       </div>
 
@@ -133,7 +145,7 @@ export default function StockAudit() {
           const difference = isDirty ? parseInt(currentInput) - product.stock : 0
 
           return (
-            <div key={product.id} className="flex min-h-[230px] flex-col justify-between rounded-2xl border border-border bg-white p-5 shadow-sm transition-colors hover:border-brand-blue">
+            <div key={product.id} className={`flex min-h-[230px] flex-col justify-between rounded-2xl border bg-white p-5 shadow-sm transition-colors hover:border-brand-blue ${isDirty ? difference === 0 ? 'border-success/30' : 'border-warning/40' : 'border-border'}`}>
               <div className="flex items-start justify-between">
                 <div className="min-w-0">
                   <h3 className="truncate font-bold text-text-primary">{product.name}</h3>
@@ -174,17 +186,22 @@ export default function StockAudit() {
                 </div>
                 
                 <button
-                  disabled={!isDirty || submitting}
+                  disabled={!isDirty || submittingProductId === product.id}
                   onClick={() => handleSubmitAudit(product)}
                   className="h-10 rounded-xl bg-brand-blue px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
                 >
-                  Confirm
+                  {submittingProductId === product.id ? 'Saving...' : 'Confirm'}
                 </button>
               </div>
             </div>
           )
         })}
       </div>
+      {filteredProducts.length === 0 && (
+        <div className="rounded-3xl border border-dashed border-border bg-white p-10 text-center text-text-secondary">
+          No products match the current audit filters.
+        </div>
+      )}
     </div>
   )
 }

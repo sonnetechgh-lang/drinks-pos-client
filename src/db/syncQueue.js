@@ -185,7 +185,7 @@ const runFlushQueue = async () => {
   }
 }
 
-export const flushQueue = async () => {
+export const flushQueue = () => {
   if (activeFlush) return activeFlush
 
   activeFlush = runFlushQueue().finally(() => {

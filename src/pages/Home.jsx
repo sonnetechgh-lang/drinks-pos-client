@@ -7,8 +7,12 @@ import { createCustomer, getCustomers } from '../api/customers'
 import { useAuth } from '../hooks/useAuth'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import { getReceiptHtml, printReceipt } from '../utils/receiptGenerator'
+import { formatCurrency } from '../utils/currency'
 import StatusPopup from '../components/StatusPopup'
-import { ShoppingCart, Search, Trash2, Plus, Minus, Printer, Wifi, WifiOff, X } from 'lucide-react'
+import Modal from '../components/Modal'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { Button } from '../components/ui/Button'
+import { ShoppingCart, Search, Trash2, Plus, Minus, Printer, Wifi, WifiOff } from 'lucide-react'
 
 export default function Home() {
   const { user } = useAuth()
@@ -31,6 +35,8 @@ export default function Home() {
   const [checkoutMessage, setCheckoutMessage] = useState(null)
   const [showReceiptPreview, setShowReceiptPreview] = useState(false)
   const [pendingSale, setPendingSale] = useState(null)
+  const [savingSale, setSavingSale] = useState(false)
+  const [confirmClearCart, setConfirmClearCart] = useState(false)
 
   const liveProducts = useLiveQuery(() => db.products.toArray())
   const liveCustomers = useLiveQuery(() => db.customers.where('active').notEqual(0).toArray())
@@ -80,6 +86,10 @@ export default function Home() {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
   }
 
+  const showCheckoutMessage = (type, text) => {
+    setCheckoutMessage({ type, text })
+  }
+
   const getLineUnitPrice = (item) => {
     const wholesalePrice = Number(item.wholesalePrice)
     if (Number.isFinite(wholesalePrice) && wholesalePrice > 0 && item.quantity >= 2 && item.unitsPerBase > 1) {
@@ -98,12 +108,12 @@ export default function Home() {
     const isExpired = product.expired || (product.expiryDate && new Date(product.expiryDate) <= new Date())
 
     if (isOutOfStock) {
-      alert('This product is out of stock.')
+      showCheckoutMessage('error', 'This product is out of stock.')
       return
     }
 
     if (isExpired) {
-      alert('This product has expired and cannot be sold.')
+      showCheckoutMessage('error', 'This product has expired and cannot be sold.')
       return
     }
 
@@ -113,7 +123,7 @@ export default function Home() {
         || null
       const unitsPerBase = defaultPackage?.unitsPerBase || 1
       if (unitsPerBase > product.stock) {
-        alert('Not enough stock for this package option.')
+        showCheckoutMessage('error', 'Not enough stock for this package option.')
         return prev
       }
       const cartProduct = {
@@ -129,7 +139,7 @@ export default function Home() {
       if (existing) {
         const nextBaseQuantity = existing.baseQuantity + existing.unitsPerBase
         if (nextBaseQuantity > product.stock) {
-          alert('Cannot add more than available stock.')
+          showCheckoutMessage('error', 'Cannot add more than available stock.')
           return prev
         }
         return prev.map((item) => (
@@ -150,7 +160,7 @@ export default function Home() {
           const nextQuantity = item.quantity + delta
           if (nextQuantity <= 0) return null
           if (nextQuantity * item.unitsPerBase > item.stock) {
-            alert('Cannot exceed available stock.')
+            showCheckoutMessage('error', 'Cannot exceed available stock.')
             return item
           }
           return { ...item, quantity: nextQuantity, baseQuantity: nextQuantity * item.unitsPerBase }
@@ -165,7 +175,7 @@ export default function Home() {
       const option = item.packageOptions?.find((packageOption) => packageOption.id === nextPackageOptionId)
       if (!option) return item
       if (item.quantity * option.unitsPerBase > item.stock) {
-        alert('Not enough stock for this package option.')
+        showCheckoutMessage('error', 'Not enough stock for this package option.')
         return item
       }
       return {
@@ -218,6 +228,15 @@ export default function Home() {
 
   const saleCompleted = Boolean(lastSale) && cart.length === 0
   const customerQueryReady = customerSearch.trim().length >= 2
+  const activeTransactionId = pendingSale?.clientId || lastSale?.clientId || null
+  const checkoutDisabledReason = useMemo(() => {
+    if (cart.length === 0) return 'Add products to start a sale.'
+    if (savingSale) return 'Saving sale...'
+    if (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) return 'Enter full amount paid before checkout.'
+    if (paymentType === 'CREDIT' && !selectedCustomerId) return 'Select a customer for credit sales.'
+    if (paymentMethod === 'ADVANCE_BALANCE' && !selectedCustomerId) return 'Select a customer to use advance balance.'
+    return ''
+  }, [cart.length, cartTotal, paidAmount, paymentMethod, paymentType, savingSale, selectedCustomerId])
 
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) return
@@ -282,33 +301,36 @@ export default function Home() {
   }
 
   const handleCheckout = () => {
-    if (cart.length === 0) return
+    if (cart.length === 0) {
+      showCheckoutMessage('error', 'Add at least one product before completing a sale.')
+      return
+    }
 
     const paid = parseAmount(paidAmount)
     if (paymentType === 'FULL' && paid < cartTotal) {
-      alert('Please enter the full amount for a full payment sale.')
+      showCheckoutMessage('error', 'Please enter the full amount for a full payment sale.')
       return
     }
     if (paymentType === 'CREDIT' && !selectedCustomerId) {
-      alert('Please select or add a customer for credit sales.')
+      showCheckoutMessage('error', 'Please select or add a customer for credit sales.')
       return
     }
     if (paymentMethod === 'ADVANCE_BALANCE') {
       if (!selectedCustomerId) {
-        alert('Please select a customer to use advance balance.')
+        showCheckoutMessage('error', 'Please select a customer to use advance balance.')
         return
       }
       if (paid <= 0) {
-        alert('Enter the amount to deduct from the advance balance.')
+        showCheckoutMessage('error', 'Enter the amount to deduct from the advance balance.')
         return
       }
       if (paid > Number(selectedCustomer?.currentBalance || 0)) {
-        alert('Advance balance is not enough for this payment.')
+        showCheckoutMessage('error', 'Advance balance is not enough for this payment.')
         return
       }
     }
     if (paymentMethod === 'MOMO' && paid > 0 && !momoReference.trim()) {
-      alert('Please enter a MoMo reference for mobile payments.')
+      showCheckoutMessage('error', 'Please enter a MoMo reference for mobile payments.')
       return
     }
 
@@ -317,9 +339,11 @@ export default function Home() {
   }
 
   const saveAndPrintSale = async (sale) => {
+    if (savingSale) return
+    setSavingSale(true)
     try {
       const result = await addToQueue(sale)
-      setLastSale(sale)
+      setLastSale(result.sale || sale)
       setPendingSale(null)
       setCart([])
       setDiscount('')
@@ -335,10 +359,12 @@ export default function Home() {
           ? 'Sale completed and synced. Stock has been updated.'
           : `Sale saved locally. Stock was updated here and sync will retry. ${result.message || ''}`.trim(),
       })
-      printReceipt(sale)
+      printReceipt(result.sale || sale)
       setShowReceiptPreview(false)
     } catch {
       setCheckoutMessage({ type: 'error', text: 'Failed to save transaction locally.' })
+    } finally {
+      setSavingSale(false)
     }
   }
 
@@ -360,9 +386,30 @@ export default function Home() {
   }
 
   const handleCancelReceiptPreview = () => {
+    if (savingSale) return
     setShowReceiptPreview(false)
     setPendingSale(null)
   }
+
+  const clearCart = () => {
+    setCart([])
+    setLastSale(null)
+    setPendingSale(null)
+    setCheckoutMessage(null)
+    setShowReceiptPreview(false)
+    setPaidAmount('')
+    setSelectedCustomerId('')
+    setCustomerSearch('')
+    setMomoReference('')
+    setShowNewCustomer(false)
+    setConfirmClearCart(false)
+  }
+
+  const checkoutDisabled = cart.length === 0
+    || savingSale
+    || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal)
+    || (paymentType === 'CREDIT' && !selectedCustomerId)
+    || (paymentMethod === 'ADVANCE_BALANCE' && !selectedCustomerId)
 
   return (
     <div className="flex min-h-full flex-col pb-28 xl:pb-0">
@@ -427,7 +474,7 @@ export default function Home() {
                       <div>
                         <h3 className="text-base font-semibold text-text-primary line-clamp-2">{product.name}</h3>
                         <p className="mt-2 text-sm text-text-secondary">{product.category?.name || 'Other'}</p>
-                        <p className="mt-3 text-lg font-black text-brand-blue">GH₵ {Number(product.price).toFixed(2)}</p>
+                        <p className="mt-3 text-lg font-black text-brand-blue">{formatCurrency(product.price)}</p>
                       </div>
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold">
                         <span className={`rounded-full px-3 py-1 ${isOutOfStock ? 'bg-slate-200 text-slate-600' : product.stock <= 5 ? 'bg-warning-light text-warning' : 'bg-brand-blue-light text-brand-blue'}`}>
@@ -461,7 +508,9 @@ export default function Home() {
               <div>
                 <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Current Sale</p>
                 <h2 className="mt-3 text-2xl font-black text-text-primary">Cart</h2>
-                <p className="mt-2 text-sm text-text-secondary">Transaction ID: <span className="font-semibold text-text-primary">{cart.length ? `TX-${String(cart[0].id).slice(0, 6).toUpperCase()}` : 'NEW-SALE'}</span></p>
+                <p className="mt-2 text-sm text-text-secondary">
+                  Transaction: <span className="font-semibold text-text-primary">{activeTransactionId ? activeTransactionId.slice(0, 8).toUpperCase() : cart.length ? 'DRAFT SALE' : 'NEW SALE'}</span>
+                </p>
               </div>
               <ShoppingCart size={24} className="text-brand-blue" />
             </div>
@@ -473,9 +522,14 @@ export default function Home() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className="font-semibold text-text-primary truncate">{item.name}</p>
-                        <p className="mt-1 text-sm text-text-secondary">GH₵ {getLineUnitPrice(item).toFixed(2)} each</p>
+                        <p className="mt-1 text-sm text-text-secondary">{formatCurrency(getLineUnitPrice(item))} each</p>
                       </div>
-                      <button onClick={() => removeFromCart(item.id, item.packageOptionId)} className="text-text-secondary hover:text-danger transition">
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item.id, item.packageOptionId)}
+                        className="text-text-secondary hover:text-danger transition"
+                        aria-label={`Remove ${item.name} from cart`}
+                      >
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -486,27 +540,31 @@ export default function Home() {
                         className="mt-3 w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
                       >
                         {item.packageOptions.filter((option) => option.active !== false).map((option) => (
-                          <option key={option.id} value={option.id}>{option.name} - GH₵ {Number(option.price).toFixed(2)}</option>
+                          <option key={option.id} value={option.id}>{option.name} - {formatCurrency(option.price)}</option>
                         ))}
                       </select>
                     )}
                     <div className="mt-4 flex items-center justify-between gap-4">
                       <div className="flex items-center rounded-full border border-border bg-white px-2">
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.id, item.packageOptionId, -1)}
                           className="p-2 text-text-secondary hover:text-text-primary transition"
+                          aria-label={`Decrease ${item.name} quantity`}
                         >
                           <Minus size={14} />
                         </button>
                         <span className="mx-3 text-sm font-black">{item.quantity}</span>
                         <button
+                          type="button"
                           onClick={() => updateQuantity(item.id, item.packageOptionId, 1)}
                           className="p-2 text-text-secondary hover:text-text-primary transition"
+                          aria-label={`Increase ${item.name} quantity`}
                         >
                           <Plus size={14} />
                         </button>
                       </div>
-                      <p className="text-sm font-black text-text-primary">GH₵ {(getLineUnitPrice(item) * item.quantity).toFixed(2)}</p>
+                      <p className="text-sm font-black text-text-primary">{formatCurrency(getLineUnitPrice(item) * item.quantity)}</p>
                     </div>
                     {item.unitsPerBase > 1 && (
                       <p className="mt-2 text-xs font-semibold text-text-secondary">
@@ -527,10 +585,10 @@ export default function Home() {
             <div className="mt-6 rounded-3xl border border-border bg-white p-5">
               <div className="flex items-center justify-between text-sm text-text-secondary">
                 <span>Subtotal</span>
-                <span className="font-semibold text-text-primary">GH₵ {cartSubtotal.toFixed(2)}</span>
+                <span className="font-semibold text-text-primary">{formatCurrency(cartSubtotal)}</span>
               </div>
               <div className="mt-3 flex items-center justify-between text-sm text-text-secondary">
-                <span className="flex items-center gap-1">Discount <span className="text-[10px] bg-brand-blue-light text-brand-blue px-1 rounded">GH₵</span></span>
+                <span className="flex items-center gap-1">Discount <span className="text-[10px] bg-brand-blue-light text-brand-blue px-1 rounded">GHS</span></span>
                 <input
                   type="number"
                   min="0"
@@ -543,7 +601,7 @@ export default function Home() {
               </div>
               <div className="mt-4 border-t border-border pt-4 flex items-center justify-between text-lg font-black text-text-primary">
                 <span>Total</span>
-                <span>GH₵ {cartTotal.toFixed(2)}</span>
+                <span>{formatCurrency(cartTotal)}</span>
               </div>
             </div>
 
@@ -563,6 +621,11 @@ export default function Home() {
                   Credit
                 </button>
               </div>
+              {paymentType === 'CREDIT' && (
+                <div className="mt-3 rounded-2xl border border-warning/20 bg-warning-light/40 px-4 py-3 text-xs font-semibold text-warning">
+                  Credit sales require a selected customer before checkout.
+                </div>
+              )}
 
               {(paymentType === 'CREDIT' || paymentMethod === 'ADVANCE_BALANCE') && (
                 <div className="mt-4 space-y-3">
@@ -648,7 +711,7 @@ export default function Home() {
                         <div className="text-right">
                           <p className="text-[10px] font-bold uppercase tracking-wider">Balance</p>
                           <p className={`text-base font-black ${selectedCustomer.currentBalance >= 0 ? 'text-success' : 'text-danger'}`}>
-                            GH₵ {Number(selectedCustomer.currentBalance || 0).toFixed(2)}
+                            {formatCurrency(selectedCustomer.currentBalance)}
                           </p>
                         </div>
                       </div>
@@ -670,6 +733,11 @@ export default function Home() {
                   <option value="MOMO">Mobile Money</option>
                   <option value="ADVANCE_BALANCE">Advance Balance (Wallet)</option>
                 </select>
+                {paymentMethod === 'ADVANCE_BALANCE' && (
+                  <p className="rounded-2xl border border-brand-blue/15 bg-brand-blue-light/30 px-4 py-3 text-xs font-semibold text-brand-blue">
+                    Select a customer with available balance before using advance balance.
+                  </p>
+                )}
 
                 <label className="block text-sm">
                   <span className="mb-1 block text-xs font-semibold text-text-secondary">Amount Paid</span>
@@ -700,24 +768,31 @@ export default function Home() {
 
               <div className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm">
                 {paymentInfo.status === 'change' ? (
-                  <p className="text-success">Change: GH₵ {paymentInfo.amount.toFixed(2)}</p>
+                  <p className="text-success">Change: {formatCurrency(paymentInfo.amount)}</p>
                 ) : paymentInfo.status === 'insufficient' ? (
                   <p className="text-danger">Insufficient amount</p>
                 ) : (
-                  <p className="text-danger">Balance due: GH₵ {paymentInfo.amount.toFixed(2)}</p>
+                  <p className="text-danger">Balance due: {formatCurrency(paymentInfo.amount)}</p>
                 )}
               </div>
             </div>
 
             <div className="mt-4 flex flex-col gap-3">
               {!saleCompleted && (
+                <>
                 <button
                   onClick={handleCheckout}
-                  disabled={cart.length === 0 || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) || (paymentType === 'CREDIT' && !selectedCustomerId) || (paymentMethod === 'ADVANCE_BALANCE' && !selectedCustomerId)}
+                  disabled={checkoutDisabled}
                   className="inline-flex w-full items-center justify-center gap-3 rounded-3xl bg-brand-blue px-6 py-4 text-lg font-black text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
                 >
-                  COMPLETE SALE
+                  {savingSale ? 'SAVING SALE...' : 'COMPLETE SALE'}
                 </button>
+                {checkoutDisabledReason && (
+                  <p className="rounded-2xl bg-slate-50 px-4 py-3 text-center text-xs font-semibold text-text-secondary">
+                    {checkoutDisabledReason}
+                  </p>
+                )}
+                </>
               )}
               {saleCompleted && (
                 <button
@@ -729,19 +804,7 @@ export default function Home() {
               )}
               <button
                 type="button"
-                onClick={() => {
-                  if (!window.confirm('Are you sure you want to clear the cart?')) return
-                  setCart([])
-                  setLastSale(null)
-                  setPendingSale(null)
-                  setCheckoutMessage(null)
-                  setShowReceiptPreview(false)
-                  setPaidAmount('')
-                  setSelectedCustomerId('')
-                  setCustomerSearch('')
-                  setMomoReference('')
-                  setShowNewCustomer(false)
-                }}
+                onClick={() => setConfirmClearCart(true)}
                 className="inline-flex w-full items-center justify-center gap-3 rounded-3xl border border-border bg-white px-6 py-4 text-sm font-semibold text-text-primary transition hover:bg-gray-50"
               >
                 Clear Cart
@@ -756,66 +819,58 @@ export default function Home() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-text-secondary">Total</p>
-            <p className="mt-1 text-lg font-black text-text-primary">GH₵ {cartTotal.toFixed(2)}</p>
+            <p className="mt-1 text-lg font-black text-text-primary">{formatCurrency(cartTotal)}</p>
           </div>
           <button
             onClick={handleCheckout}
-            disabled={cart.length === 0 || (paymentType === 'FULL' && parseAmount(paidAmount) < cartTotal) || (paymentType === 'CREDIT' && !selectedCustomerId) || (paymentMethod === 'ADVANCE_BALANCE' && !selectedCustomerId)}
+            disabled={checkoutDisabled}
             className="rounded-3xl bg-brand-blue px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-blue-dark disabled:bg-gray-200 disabled:text-gray-500"
           >
-            Complete Sale
+            {savingSale ? 'Saving...' : 'Complete Sale'}
           </button>
         </div>
       </div>
       )}
 
       {showReceiptPreview && (pendingSale || lastSale) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-text-secondary">Receipt Preview</p>
-                <h2 className="mt-1 text-lg font-black text-text-primary">Confirm Sale?</h2>
-              </div>
-              <button
-                type="button"
-                onClick={handleCancelReceiptPreview}
-                className="rounded-2xl border border-border bg-white p-2 text-text-secondary transition hover:bg-gray-50"
-                aria-label="Close receipt preview"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto bg-slate-100 px-4 py-5">
-              <div className="mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
-                <iframe
-                  title="Receipt preview"
-                  srcDoc={getReceiptHtml(pendingSale || lastSale)}
-                  className="h-[620px] w-full border-0 bg-white"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 border-t border-border bg-white px-5 py-4">
-              <button
-                type="button"
-                onClick={handleCancelReceiptPreview}
-                className="rounded-2xl border border-border bg-white px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
-              >
+        <Modal
+          open={showReceiptPreview}
+          onClose={handleCancelReceiptPreview}
+          eyebrow="Receipt Preview"
+          title={pendingSale ? 'Confirm Sale?' : 'Sale Receipt'}
+          size="receipt"
+          closeDisabled={savingSale}
+          bodyClassName="bg-slate-100 px-4 py-5"
+          footer={(
+            <div className="flex items-center justify-end gap-3">
+              <Button type="button" variant="secondary" onClick={handleCancelReceiptPreview} disabled={savingSale}>
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmPrint}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark"
-              >
-                <Printer size={17} /> Print
-              </button>
+              </Button>
+              <Button type="button" onClick={handleConfirmPrint} loading={savingSale}>
+                <Printer size={17} /> {pendingSale ? 'Confirm & Print' : 'Print'}
+              </Button>
             </div>
+          )}
+        >
+          <div className="mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
+            <iframe
+              title="Receipt preview"
+              srcDoc={getReceiptHtml(pendingSale || lastSale)}
+              className="h-[620px] w-full border-0 bg-white"
+            />
           </div>
-        </div>
+        </Modal>
       )}
+
+      <ConfirmDialog
+        open={confirmClearCart}
+        onCancel={() => setConfirmClearCart(false)}
+        onConfirm={clearCart}
+        title="Clear Cart?"
+        message="Remove all items and payment details from the current sale."
+        confirmLabel="Clear Cart"
+        tone="danger"
+      />
     </div>
   )
 }

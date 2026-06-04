@@ -5,7 +5,12 @@ import { exportToExcel, exportToPDF } from '../utils/exportUtils'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import Skeleton from '../components/Skeleton'
 import ErrorBanner from '../components/ErrorBanner'
+import StatusPopup from '../components/StatusPopup'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Modal from '../components/Modal'
+import { Button } from '../components/ui/Button'
 import { db } from '../db/dexie'
+import { formatCurrency } from '../utils/currency'
 
 const defaultPackageOptions = [{ name: 'Unit', unitsPerBase: 1, price: '', wholesalePrice: '', isDefault: true, active: true }]
 
@@ -34,6 +39,9 @@ export default function ProductsPage() {
   const [categoryError, setCategoryError] = useState('')
   const [categorySubmitting, setCategorySubmitting] = useState(false)
   const [currentProduct, setCurrentProduct] = useState(null)
+  const [statusMessage, setStatusMessage] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
   
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('')
@@ -230,9 +238,10 @@ export default function ProductsPage() {
         await createProduct(payload)
       }
       setIsModalOpen(false)
+      setStatusMessage({ type: 'success', text: currentProduct ? 'Product updated successfully.' : 'Product created successfully.' })
       fetchData()
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Operation failed')
+      setStatusMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Product operation failed.' })
     }
   }
 
@@ -270,20 +279,25 @@ export default function ProductsPage() {
         ...stockData,
       })
       setIsStockModalOpen(false)
+      setStatusMessage({ type: 'success', text: 'Stock adjustment saved successfully.' })
       fetchData()
     } catch {
-      alert('Stock update failed')
+      setStatusMessage({ type: 'error', text: 'Stock update failed.' })
     }
   }
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      try {
-        await deleteProduct(id)
-        fetchData()
-      } catch {
-        alert('Delete failed')
-      }
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteProduct(deleteTarget.id)
+      setStatusMessage({ type: 'success', text: `${deleteTarget.name} deleted successfully.` })
+      setDeleteTarget(null)
+      fetchData()
+    } catch {
+      setStatusMessage({ type: 'error', text: 'Delete failed.' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -291,7 +305,7 @@ export default function ProductsPage() {
     const headers = [
       { key: 'name', label: 'Product Name' },
       { key: 'categoryName', label: 'Category' },
-      { key: 'price', label: 'Price (GH₵)' },
+      { key: 'price', label: 'Price (GHS)' },
       { key: 'stock', label: 'Current Stock' },
       { key: 'lowStockThreshold', label: 'Low Stock Threshold' },
       { key: 'baseUnit', label: 'Base Unit' }
@@ -302,8 +316,9 @@ export default function ProductsPage() {
     }))
     try {
       await exportToExcel(data, `Products_Export_${new Date().toISOString().split('T')[0]}`, headers)
+      setStatusMessage({ type: 'success', text: 'Excel export completed.' })
     } catch {
-      alert('Excel export failed')
+      setStatusMessage({ type: 'error', text: 'Excel export failed.' })
     }
   }
 
@@ -311,7 +326,7 @@ export default function ProductsPage() {
     const headers = [
       { key: 'name', label: 'Product Name' },
       { key: 'categoryName', label: 'Category' },
-      { key: 'price', label: 'Price (GH₵)', formatter: (val) => Number(val).toFixed(2) },
+      { key: 'price', label: 'Price (GHS)', formatter: (val) => Number(val).toFixed(2) },
       { key: 'stock', label: 'Stock' },
       { key: 'lowStockThreshold', label: 'Low Stock Threshold' },
       { key: 'baseUnit', label: 'Unit' }
@@ -322,8 +337,9 @@ export default function ProductsPage() {
     }))
     try {
       await exportToPDF(data, `Products_Export_${new Date().toISOString().split('T')[0]}`, 'Product Inventory Report', headers)
+      setStatusMessage({ type: 'success', text: 'PDF export completed.' })
     } catch {
-      alert('PDF export failed')
+      setStatusMessage({ type: 'error', text: 'PDF export failed.' })
     }
   }
 
@@ -364,6 +380,8 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-full space-y-8 pb-10">
+      <StatusPopup message={statusMessage} onClose={() => setStatusMessage(null)} />
+
       {/* Header Section */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -434,7 +452,7 @@ export default function ProductsPage() {
               <tr className="bg-brand-blue-light/30 text-xs uppercase tracking-[0.15em] text-text-secondary">
                 <th className="px-6 py-5 font-bold">Product Name</th>
                 <th className="px-6 py-5 font-bold">Category</th>
-                <th className="px-6 py-5 font-bold">Price (GH₵)</th>
+                <th className="px-6 py-5 font-bold">Price (GHS)</th>
                 <th className="px-6 py-5 font-bold">Packaging</th>
                 <th className="px-6 py-5 font-bold">Current Stock</th>
                 <th className="px-6 py-5 font-bold">Low Stock At</th>
@@ -466,7 +484,7 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="font-black text-text-primary">₵ {Number(product.price).toFixed(2)}</span>
+                      <span className="font-black text-text-primary">{formatCurrency(product.price)}</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
@@ -517,7 +535,7 @@ export default function ProductsPage() {
                           <Edit size={18} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(product.id)} 
+                          onClick={() => setDeleteTarget(product)}
                           className="flex h-9 w-9 items-center justify-center rounded-xl text-danger transition hover:bg-danger/10" 
                           title="Delete"
                           aria-label={`Delete ${product.name}`}
@@ -550,16 +568,13 @@ export default function ProductsPage() {
       </div>
 
       {/* Add/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-black text-text-primary">{currentProduct ? 'Edit Product' : 'Add New Product'}</h2>
-              <button type="button" onClick={() => setIsModalOpen(false)} className="rounded-full p-2 hover:bg-gray-100 transition-colors">
-                <Trash2 size={20} className="text-text-muted rotate-45" />
-              </button>
-            </div>
-            
+      <Modal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        eyebrow="Products"
+        title={currentProduct ? 'Edit Product' : 'Add New Product'}
+        size="lg"
+      >
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
@@ -640,7 +655,7 @@ export default function ProductsPage() {
               <div className="grid gap-6 md:grid-cols-2">
                 {!isPackaged && (
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-text-primary">Default Price (GH₵)</label>
+                    <label className="text-sm font-bold text-text-primary">Default Price (GHS)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -663,7 +678,7 @@ export default function ProductsPage() {
                   
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-text-primary">Bottle Price (GH₵)</label>
+                      <label className="text-sm font-bold text-text-primary">Bottle Price (GHS)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -674,7 +689,7 @@ export default function ProductsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-text-primary">Carton Price (GH₵)</label>
+                      <label className="text-sm font-bold text-text-primary">Carton Price (GHS)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -699,7 +714,7 @@ export default function ProductsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-text-primary">Wholesale Carton Price (GHâ‚µ)</label>
+                      <label className="text-sm font-bold text-text-primary">Wholesale Carton Price (GHS)</label>
                       <input
                         type="number"
                         min="0"
@@ -807,7 +822,12 @@ export default function ProductsPage() {
                         </div>
                         <div className="col-span-1 flex justify-center">
                           {formData.packageOptions.length > 1 && (
-                            <button type="button" onClick={() => removePackageOption(index)} className="text-danger hover:scale-110 transition-transform">
+                            <button
+                              type="button"
+                              onClick={() => removePackageOption(index)}
+                              className="text-danger hover:scale-110 transition-transform"
+                              aria-label={`Remove package option ${option.name || index + 1}`}
+                            >
                               <Trash2 size={16} />
                             </button>
                           )}
@@ -819,30 +839,32 @@ export default function ProductsPage() {
               )}
 
               <div className="flex items-center justify-end gap-4 pt-6 border-t border-border">
-                <button 
+                <Button
                   type="button" 
                   onClick={() => setIsModalOpen(false)} 
-                  className="rounded-2xl px-6 py-4 text-sm font-bold text-text-secondary hover:bg-gray-50 transition-colors"
+                  variant="secondary"
+                  className="px-6 py-4"
                 >
                   Cancel
-                </button>
-                <button 
+                </Button>
+                <Button
                   type="submit" 
-                  className="rounded-2xl bg-brand-blue px-8 py-4 text-sm font-black text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-blue-dark active:scale-95 transition-all"
+                  className="px-8 py-4"
                 >
                   {currentProduct ? 'Update Product' : 'Create Product'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Stock Adjustment Modal */}
-      {isStockModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-[2rem] bg-white p-8 shadow-2xl">
-            <h2 className="text-2xl font-black text-text-primary">Adjust Stock</h2>
+      <Modal
+        open={isStockModalOpen}
+        onClose={() => setIsStockModalOpen(false)}
+        eyebrow="Inventory"
+        title="Adjust Stock"
+        size="md"
+      >
             <div className="mt-2 flex items-center gap-2 text-sm font-medium text-text-secondary">
               <Package size={16} className="text-brand-blue" />
               <span>{currentProduct?.name}</span>
@@ -901,24 +923,78 @@ export default function ProductsPage() {
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4">
-                <button 
+                <Button
                   type="button" 
                   onClick={() => setIsStockModalOpen(false)} 
-                  className="rounded-2xl px-6 py-4 text-sm font-bold text-text-secondary hover:bg-gray-50"
+                  variant="secondary"
+                  className="px-6 py-4"
                 >
                   Cancel
-                </button>
-                <button 
+                </Button>
+                <Button
                   type="submit" 
-                  className="rounded-2xl bg-brand-blue px-8 py-4 text-sm font-black text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-blue-dark active:scale-95 transition-all"
+                  className="px-8 py-4"
                 >
                   Confirm Adjustment
-                </button>
+                </Button>
               </div>
             </form>
+      </Modal>
+
+      <Modal
+        open={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        eyebrow="Products"
+        title="Add Category"
+        size="sm"
+        closeDisabled={categorySubmitting}
+      >
+        <form onSubmit={handleCategorySubmit} className="space-y-4">
+          {categoryError && (
+            <div className="rounded-2xl border border-danger/20 bg-danger-light/30 p-3 text-sm font-semibold text-danger">
+              {categoryError}
+            </div>
+          )}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-text-primary">Category name</label>
+            <input
+              value={newCategoryData.name}
+              onChange={(event) => setNewCategoryData({ ...newCategoryData, name: event.target.value })}
+              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+              placeholder="Alcoholic"
+              required
+            />
           </div>
-        </div>
-      )}
+          <label className="flex items-center gap-3 rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-text-primary">
+            <input
+              type="checkbox"
+              checked={newCategoryData.hasPackaging}
+              onChange={(event) => setNewCategoryData({ ...newCategoryData, hasPackaging: event.target.checked })}
+              className="h-4 w-4 accent-brand-blue"
+            />
+            Has bottle/carton packaging
+          </label>
+          <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
+            <Button type="button" variant="secondary" onClick={() => setIsCategoryModalOpen(false)} disabled={categorySubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={categorySubmitting}>
+              Add Category
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Product?"
+        message={deleteTarget ? `Delete ${deleteTarget.name}? This product will no longer be available for sales.` : ''}
+        confirmLabel="Delete Product"
+        tone="danger"
+        loading={deleting}
+      />
     </div>
   )
 }

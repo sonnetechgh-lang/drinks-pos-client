@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { defaultReceiptSettings, legacyReceiptDefaults } from '../config/business'
 import { useAuth } from '../hooks/useAuth'
 import { createUser, deleteUser, getUsers, updateMyProfile, updateUser } from '../api/users'
@@ -7,6 +7,10 @@ import { db } from '../db/dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { flushQueue } from '../db/syncQueue'
 import { AlertCircle, CheckCircle, Edit, Plus, RefreshCw, Trash2, UserPen, X } from 'lucide-react'
+import StatusPopup from '../components/StatusPopup'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Modal from '../components/Modal'
+import { Button } from '../components/ui/Button'
 
 const emptyCashierForm = {
   name: '',
@@ -35,7 +39,9 @@ export default function Settings() {
   const [businessMessage, setBusinessMessage] = useState('')
   const [accountMessage, setAccountMessage] = useState('')
   const [cashierMessage, setCashierMessage] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
+  const [statusMessage, setStatusMessage] = useState(null)
+  const [confirmAction, setConfirmAction] = useState(null)
+  const [confirming, setConfirming] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
   const isAdmin = user?.role === 'ADMIN'
@@ -48,7 +54,7 @@ export default function Settings() {
     setSyncing(true)
     try {
       await flushQueue()
-      setSuccessMessage('Sync completed successfully.')
+      setStatusMessage({ type: 'success', text: 'Sync completed successfully.' })
     } catch (error) {
       console.error('Manual sync failed', error)
     } finally {
@@ -57,21 +63,33 @@ export default function Settings() {
   }
 
   const handleClearSyncQueue = async () => {
-    if (!window.confirm('Are you sure you want to clear the unsynced items? This data will NOT be sent to the server.')) return
     try {
       await db.syncQueue.where('synced').equals(0).delete()
-      setSuccessMessage('Sync queue cleared.')
+      setStatusMessage({ type: 'success', text: 'Sync queue cleared.' })
     } catch (error) {
       console.error('Failed to clear sync queue', error)
+      setStatusMessage({ type: 'error', text: 'Failed to clear sync queue.' })
     }
   }
 
   const handleRemoveSyncItem = async (id) => {
-    if (!window.confirm('Remove this item from the sync queue?')) return
     try {
       await db.syncQueue.delete(id)
+      setStatusMessage({ type: 'success', text: 'Sync queue item removed.' })
     } catch (error) {
       console.error('Failed to remove sync item', error)
+      setStatusMessage({ type: 'error', text: 'Failed to remove sync item.' })
+    }
+  }
+
+  const runConfirmAction = async () => {
+    if (!confirmAction) return
+    setConfirming(true)
+    try {
+      await confirmAction.run()
+      setConfirmAction(null)
+    } finally {
+      setConfirming(false)
     }
   }
 
@@ -97,7 +115,7 @@ export default function Settings() {
     })
   }, [user])
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     if (!isAdmin) return
     setLoadingUsers(true)
     try {
@@ -107,17 +125,17 @@ export default function Settings() {
     } finally {
       setLoadingUsers(false)
     }
-  }
+  }, [isAdmin])
 
   useEffect(() => {
     fetchUsers()
-  }, [isAdmin])
+  }, [fetchUsers])
 
   const handleBusinessSave = (event) => {
     event.preventDefault()
     localStorage.setItem('palace-line-settings', JSON.stringify(settings))
     setBusinessMessage('Business details saved.')
-    setSuccessMessage('Business details saved successfully.')
+    setStatusMessage({ type: 'success', text: 'Business details saved successfully.' })
   }
 
   const handleAccountSave = async (event) => {
@@ -153,7 +171,7 @@ export default function Settings() {
       }))
       setAccountMessage('Login details updated.')
       setAccountModalOpen(false)
-      setSuccessMessage('Login credentials updated successfully.')
+      setStatusMessage({ type: 'success', text: 'Login credentials updated successfully.' })
       fetchUsers()
     } catch (error) {
       setAccountMessage(error.response?.data?.message || 'Failed to update login details.')
@@ -203,7 +221,7 @@ export default function Settings() {
 
       closeCashierModal()
       setCashierMessage(editingCashier ? 'Cashier updated.' : 'Cashier added.')
-      setSuccessMessage(editingCashier ? 'Cashier updated successfully.' : 'Cashier added successfully.')
+      setStatusMessage({ type: 'success', text: editingCashier ? 'Cashier updated successfully.' : 'Cashier added successfully.' })
       fetchUsers()
     } catch (error) {
       setCashierMessage(error.response?.data?.message || 'Failed to save cashier.')
@@ -211,12 +229,10 @@ export default function Settings() {
   }
 
   const handleRemoveCashier = async (cashier) => {
-    if (!window.confirm(`Remove ${cashier.name}? This will disable their login.`)) return
-
     try {
       await deleteUser(cashier.id)
       setCashierMessage('Cashier removed.')
-      setSuccessMessage('Cashier removed successfully.')
+      setStatusMessage({ type: 'success', text: 'Cashier removed successfully.' })
       fetchUsers()
     } catch (error) {
       setCashierMessage(error.response?.data?.message || 'Failed to remove cashier.')
@@ -225,6 +241,8 @@ export default function Settings() {
 
   return (
     <div className="space-y-8">
+      <StatusPopup message={statusMessage} onClose={() => setStatusMessage(null)} />
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Configuration</p>
@@ -382,7 +400,12 @@ export default function Settings() {
                 <button
                   type="button"
                   disabled={unsyncedItems.length === 0}
-                  onClick={handleClearSyncQueue}
+                  onClick={() => setConfirmAction({
+                    title: 'Clear Sync Queue?',
+                    message: 'This will remove unsynced items from this device. They will not be sent to the server.',
+                    confirmLabel: 'Clear Queue',
+                    run: handleClearSyncQueue,
+                  })}
                   className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-danger-light/20 border border-danger-light px-4 py-3 text-xs font-bold text-danger hover:bg-danger-light/30 disabled:opacity-50 transition"
                 >
                   <Trash2 size={14} /> Clear Queue
@@ -402,7 +425,12 @@ export default function Settings() {
                           <p className="mt-1 text-[10px] text-danger font-medium leading-relaxed">{item.lastError || 'Unknown error'}</p>
                         </div>
                         <button
-                          onClick={() => handleRemoveSyncItem(item.id)}
+                          onClick={() => setConfirmAction({
+                            title: 'Remove Sync Item?',
+                            message: 'This item will be removed from the local sync queue and will not be retried.',
+                            confirmLabel: 'Remove Item',
+                            run: () => handleRemoveSyncItem(item.id),
+                          })}
                           className="absolute right-2 top-2 p-1 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition"
                         >
                           <X size={12} />
@@ -487,7 +515,12 @@ export default function Settings() {
                         {staff.role === 'CASHIER' && staff.active && (
                           <button
                             type="button"
-                            onClick={() => handleRemoveCashier(staff)}
+                            onClick={() => setConfirmAction({
+                              title: 'Remove Cashier?',
+                              message: `Remove ${staff.name}? This will disable their login.`,
+                              confirmLabel: 'Remove Cashier',
+                              run: () => handleRemoveCashier(staff),
+                            })}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-danger transition hover:bg-danger-light"
                             aria-label={`Remove ${staff.name}`}
                           >
@@ -504,24 +537,13 @@ export default function Settings() {
         </section>
       )}
 
-      {cashierModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Cashier</p>
-                <h2 className="mt-2 text-2xl font-black text-text-primary">{editingCashier ? 'Edit Cashier' : 'Add Cashier'}</h2>
-              </div>
-              <button
-                type="button"
-                onClick={closeCashierModal}
-                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
-                aria-label="Close cashier form"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
+      <Modal
+        open={cashierModalOpen}
+        onClose={closeCashierModal}
+        eyebrow="Cashier"
+        title={editingCashier ? 'Edit Cashier' : 'Add Cashier'}
+        size="md"
+      >
             <form onSubmit={handleCashierSave} className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-text-primary">Name</label>
@@ -561,43 +583,29 @@ export default function Settings() {
               {cashierMessage && <p className="text-sm font-semibold text-text-secondary">{cashierMessage}</p>}
 
               <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
-                <button
+                <Button
                   type="button"
                   onClick={closeCashierModal}
-                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark"
                 >
                   {editingCashier ? 'Save Changes' : 'Add Cashier'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
-      {accountModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Admin Account</p>
-                <h2 className="mt-2 text-2xl font-black text-text-primary">Update Login Credentials</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAccountModalOpen(false)}
-                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
-                aria-label="Close login credentials form"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
+      <Modal
+        open={accountModalOpen}
+        onClose={() => setAccountModalOpen(false)}
+        eyebrow="Admin Account"
+        title="Update Login Credentials"
+        size="lg"
+      >
             <form onSubmit={handleAccountSave} className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-text-primary">Name</label>
@@ -656,43 +664,32 @@ export default function Settings() {
               {accountMessage && <p className="text-sm font-semibold text-text-secondary">{accountMessage}</p>}
 
               <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
-                <button
+                <Button
                   type="button"
                   onClick={() => setAccountModalOpen(false)}
-                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark"
                 >
                   Save Login Details
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
-      {successMessage && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[2rem] bg-white p-6 text-center shadow-2xl">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-light text-success">
-              <CheckCircle size={28} />
-            </div>
-            <h2 className="mt-4 text-xl font-black text-text-primary">Success</h2>
-            <p className="mt-2 text-sm text-text-secondary">{successMessage}</p>
-            <button
-              type="button"
-              onClick={() => setSuccessMessage('')}
-              className="mt-6 w-full rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={runConfirmAction}
+        title={confirmAction?.title}
+        message={confirmAction?.message}
+        confirmLabel={confirmAction?.confirmLabel}
+        tone="danger"
+        loading={confirming}
+      />
     </div>
   )
 }

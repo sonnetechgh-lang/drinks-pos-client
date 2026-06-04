@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useState, useMemo, useEffect } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LogOut, Moon, Search, Sun, UserCircle, Menu } from 'lucide-react'
+import { LogOut, Moon, Sun, UserCircle, Menu } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import Sidebar from './Sidebar'
@@ -11,28 +12,61 @@ const pageTitles = {
   '/dashboard': 'Dashboard',
   '/products': 'Products',
   '/customers': 'Customers',
+  '/reports': 'Reports',
+  '/stock-audit': 'Stock Audit',
   '/settings': 'Settings',
 }
 
 export default function Layout() {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
-  const [search, setSearch] = useState('')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const location = useLocation()
 
   const pageTitle = useMemo(() => pageTitles[location.pathname] || 'Palace Line', [location.pathname])
+  const isAdmin = user?.role === 'ADMIN'
 
-  const toggleSidebar = () => setMobileSidebarOpen((open) => !open)
+  const openSidebar = () => setMobileSidebarOpen(true)
+  const closeSidebar = () => setMobileSidebarOpen(false)
+  const handleLogout = () => {
+    closeSidebar()
+    logout()
+  }
+
+  useEffect(() => {
+    closeSidebar()
+  }, [location.pathname])
+
+  const userControl = isAdmin ? (
+    <Link to="/settings" className="flex items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2 hover:shadow-sm transition">
+      <UserCircle size={20} className="text-brand-blue" />
+      <span className="hidden sm:inline text-sm font-semibold text-text-primary">{user?.name}</span>
+    </Link>
+  ) : (
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2">
+      <UserCircle size={20} className="text-brand-blue" />
+      <span className="hidden sm:inline text-sm font-semibold text-text-primary">{user?.name}</span>
+    </div>
+  )
+
+  const mobileUserControl = isAdmin ? (
+    <Link to="/settings" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-gray-50" aria-label="Open settings">
+      <UserCircle size={18} className="text-brand-blue" />
+    </Link>
+  ) : (
+    <div className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary" aria-label="Cashier account">
+      <UserCircle size={18} className="text-brand-blue" />
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-bg-canvas text-text-primary">
-      <Sidebar isOpen={mobileSidebarOpen} toggleSidebar={toggleSidebar} />
+      <Sidebar isOpen={mobileSidebarOpen} onClose={closeSidebar} />
 
       <div className="lg:ml-60 flex min-h-0 flex-col">
         <header className="fixed inset-x-0 top-0 z-30 border-b border-border bg-white/95 backdrop-blur lg:hidden">
           <div className="mx-auto flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
-            <button onClick={toggleSidebar} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-white text-text-secondary transition hover:bg-gray-50">
+            <button onClick={openSidebar} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-white text-text-secondary transition hover:bg-gray-50" aria-label="Open navigation">
               <Menu size={20} />
             </button>
             <div className="min-w-0">
@@ -40,12 +74,10 @@ export default function Layout() {
               <h1 className="truncate text-lg font-black text-text-primary">{pageTitle}</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Link to="/settings" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-gray-50">
-                <UserCircle size={18} className="text-brand-blue" />
-              </Link>
+              {mobileUserControl}
               <button
                 type="button"
-                onClick={logout}
+                onClick={handleLogout}
                 aria-label="Logout"
                 title="Logout"
                 className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-danger/20 bg-white text-danger transition hover:bg-danger-light"
@@ -63,14 +95,10 @@ export default function Layout() {
               <h1 className="truncate text-xl font-black text-text-primary">Hello, {user?.name || 'User'}.</h1>
             </div>
 
-            <div className="hidden md:flex flex-1 max-w-xl items-center gap-3 rounded-full border border-border bg-white px-3 py-2 shadow-sm">
-              <Search size={18} className="text-text-muted" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search products, transaction ID, brand..."
-                className="w-full border-0 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-secondary"
-              />
+            <div className="hidden md:flex flex-1 max-w-xl items-center justify-end">
+              <span className="rounded-full border border-border bg-bg-canvas px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-text-secondary">
+                {pageTitle}
+              </span>
             </div>
 
             <div className="flex items-center gap-3">
@@ -83,13 +111,10 @@ export default function Layout() {
               >
                 {theme === 'dark' ? <Sun size={18} className="text-current" /> : <Moon size={18} className="text-current" />}
               </button>
-              <Link to="/settings" className="flex items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2 hover:shadow-sm transition">
-                <UserCircle size={20} className="text-brand-blue" />
-                <span className="hidden sm:inline text-sm font-semibold text-text-primary">{user?.name}</span>
-              </Link>
+              {userControl}
               <button
                 type="button"
-                onClick={logout}
+                onClick={handleLogout}
                 aria-label="Logout"
                 title="Logout"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-danger/20 bg-white text-danger transition hover:bg-danger-light"

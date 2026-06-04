@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Banknote, Ban, Pencil, Plus, Search, UserCheck, X } from 'lucide-react'
+import { Banknote, Ban, Pencil, Plus, Search, UserCheck } from 'lucide-react'
 import { getCustomers, createCustomer, updateCustomer } from '../api/customers'
 import { addCustomerPaymentToQueue } from '../db/syncQueue'
 import { db } from '../db/dexie'
@@ -7,6 +7,9 @@ import { useAuth } from '../hooks/useAuth'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import ErrorBanner from '../components/ErrorBanner'
 import StatusPopup from '../components/StatusPopup'
+import Modal from '../components/Modal'
+import { Button } from '../components/ui/Button'
+import { formatCurrency } from '../utils/currency'
 
 export default function CustomersPage() {
   const { user } = useAuth()
@@ -92,7 +95,7 @@ export default function CustomersPage() {
     event.preventDefault()
     if (!paymentCustomerId || Number(paymentAmount) <= 0) return
     if (paymentMethod === 'MOMO' && !momoReference.trim()) {
-      alert('Enter the MoMo reference.')
+      setStatusMessage({ type: 'error', text: 'Enter the MoMo reference.' })
       return
     }
 
@@ -242,8 +245,8 @@ export default function CustomersPage() {
                           <div className="truncate">{customer.phone || '-'}</div>
                           {customer.notes && <div className="mt-1 truncate text-xs text-text-secondary">{customer.notes}</div>}
                         </td>
-                        <td className="px-5 py-4 text-right font-semibold text-text-primary">GH₵ {Number(customer.creditLimit || 0).toFixed(2)}</td>
-                        <td className={`px-5 py-4 text-right font-semibold ${Number(customer.balance || 0) >= 0 ? 'text-success' : 'text-danger'}`}>GH₵ {Number(customer.balance || 0).toFixed(2)}</td>
+                        <td className="px-5 py-4 text-right font-semibold text-text-primary">{formatCurrency(customer.creditLimit)}</td>
+                        <td className={`px-5 py-4 text-right font-semibold ${Number(customer.balance || 0) >= 0 ? 'text-success' : 'text-danger'}`}>{formatCurrency(customer.balance)}</td>
                         <td className="px-5 py-4">
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${customer.active ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`}>
                             {customer.active ? 'Active' : 'Blocked'}
@@ -313,11 +316,11 @@ export default function CustomersPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-2xl bg-gray-50 p-3">
                           <p className="text-xs uppercase tracking-[0.18em] text-text-secondary">Credit Limit</p>
-                          <p className="mt-2 font-semibold text-text-primary">GH₵ {Number(customer.creditLimit || 0).toFixed(2)}</p>
+                          <p className="mt-2 font-semibold text-text-primary">{formatCurrency(customer.creditLimit)}</p>
                         </div>
                         <div className="rounded-2xl bg-gray-50 p-3">
                           <p className="text-xs uppercase tracking-[0.18em] text-text-secondary">Balance</p>
-                          <p className="mt-2 font-semibold text-text-primary">GH₵ {Number(customer.balance || 0).toFixed(2)}</p>
+                          <p className="mt-2 font-semibold text-text-primary">{formatCurrency(customer.balance)}</p>
                         </div>
                       </div>
                     </div>
@@ -352,22 +355,15 @@ export default function CustomersPage() {
       </div>
 
       {editingCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
-            <div className="mb-6 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Customers</p>
-                <h2 className="mt-2 text-2xl font-black text-text-primary">Edit Customer</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingCustomer(null)}
-                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
+        <Modal
+          open={Boolean(editingCustomer)}
+          onClose={() => setEditingCustomer(null)}
+          eyebrow="Customers"
+          title="Edit Customer"
+          size="md"
+          closeDisabled={savingEdit}
+        >
+          <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-text-primary mb-2">Name</label>
                 <input
@@ -396,45 +392,27 @@ export default function CustomersPage() {
                 />
               </div>
               <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
-                <button
-                  type="button"
-                  onClick={() => setEditingCustomer(null)}
-                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
-                >
+                <Button type="button" variant="secondary" onClick={() => setEditingCustomer(null)} disabled={savingEdit}>
                   Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveEdit}
-                  disabled={savingEdit}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
-                >
+                </Button>
+                <Button type="button" onClick={handleSaveEdit} loading={savingEdit}>
                   Save Changes
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
-            <div className="mb-6 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Customers</p>
-                <h2 className="mt-2 text-2xl font-black text-text-primary">Add New Customer</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreate} className="space-y-4">
+        <Modal
+          open={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          eyebrow="Customers"
+          title="Add New Customer"
+          size="lg"
+          closeDisabled={saving}
+        >
+          <form onSubmit={handleCreate} className="space-y-4">
               {formError && (
                 <div className="rounded-2xl border border-danger/20 bg-danger-light/30 p-3 text-sm font-semibold text-danger">
                   {formError}
@@ -481,44 +459,27 @@ export default function CustomersPage() {
                 />
               </div>
               <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
-                >
+                <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)} disabled={saving}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
-                >
+                </Button>
+                <Button type="submit" loading={saving}>
                   <Plus size={16} /> Add Customer
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
-            <div className="mb-6 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Customers</p>
-                <h2 className="mt-2 text-2xl font-black text-text-primary">Add Advance Payment</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowPaymentModal(false)}
-                className="rounded-full p-2 text-text-muted transition hover:bg-gray-100"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handlePayment} className="space-y-4">
+        <Modal
+          open={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          eyebrow="Customers"
+          title="Add Advance Payment"
+          size="md"
+          closeDisabled={savingPayment}
+        >
+          <form onSubmit={handlePayment} className="space-y-4">
               <select
                 value={paymentCustomerId}
                 onChange={(e) => setPaymentCustomerId(e.target.value)}
@@ -563,24 +524,15 @@ export default function CustomersPage() {
                 className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
               />
               <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
-                <button
-                  type="button"
-                  onClick={() => setShowPaymentModal(false)}
-                  className="rounded-2xl px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
-                >
+                <Button type="button" variant="secondary" onClick={() => setShowPaymentModal(false)} disabled={savingPayment}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingPayment}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-blue-dark disabled:opacity-60"
-                >
+                </Button>
+                <Button type="submit" loading={savingPayment}>
                   Record Payment
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

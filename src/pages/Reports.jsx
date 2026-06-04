@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { getSalesReport, getBestSellingProducts } from '../api/sales'
 import { getLowStockProducts } from '../api/products'
-import { ChevronRight, Calendar, Eye, FileText, Printer, Table, X } from 'lucide-react'
+import { ChevronRight, Calendar, Eye, FileText, Printer, Table } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { exportToExcel, exportToPDF } from '../utils/exportUtils'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import ErrorBanner from '../components/ErrorBanner'
+import StatusPopup from '../components/StatusPopup'
 import { getReceiptHtml, printReceipt } from '../utils/receiptGenerator'
+import { formatCurrency } from '../utils/currency'
+import Modal from '../components/Modal'
+import { Button } from '../components/ui/Button'
 
 export default function Reports() {
   const [reportType, setReportType] = useState('sales')
@@ -21,6 +25,7 @@ export default function Reports() {
   const [totalSales, setTotalSales] = useState(0)
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [receiptSale, setReceiptSale] = useState(null)
+  const [statusMessage, setStatusMessage] = useState(null)
 
   const fetchReportData = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true)
@@ -55,6 +60,14 @@ export default function Reports() {
     }
   }
 
+  const applyDatePreset = (days) => {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(end.getDate() - days + 1)
+    setStartDate(start.toISOString().split('T')[0])
+    setEndDate(end.toISOString().split('T')[0])
+  }
+
   const handleExportExcel = async () => {
     let headers = []
     let data = []
@@ -65,7 +78,7 @@ export default function Reports() {
         { key: 'clientId', label: 'Sale ID' },
         { key: 'dateStr', label: 'Date' },
         { key: 'customerName', label: 'Customer' },
-        { key: 'total', label: 'Total (GH₵)' },
+        { key: 'total', label: 'Total (GHS)' },
         { key: 'paymentStatus', label: 'Status' }
       ]
       data = salesData.map(s => ({
@@ -78,7 +91,7 @@ export default function Reports() {
         { key: 'rank', label: 'Rank' },
         { key: 'name', label: 'Product' },
         { key: 'quantity', label: 'Units Sold' },
-        { key: 'revenue', label: 'Revenue (GH₵)' }
+        { key: 'revenue', label: 'Revenue (GHS)' }
       ]
       data = bestSellingData.map((p, i) => ({ ...p, rank: i + 1 }))
     } else if (reportType === 'low-stock') {
@@ -92,8 +105,9 @@ export default function Reports() {
 
     try {
       await exportToExcel(data, fileName, headers)
+      setStatusMessage({ type: 'success', text: 'Excel export completed.' })
     } catch {
-      alert('Excel export failed')
+      setStatusMessage({ type: 'error', text: 'Excel export failed.' })
     }
   }
 
@@ -138,8 +152,9 @@ export default function Reports() {
 
     try {
       await exportToPDF(data, fileName, title, headers)
+      setStatusMessage({ type: 'success', text: 'PDF export completed.' })
     } catch {
-      alert('PDF export failed')
+      setStatusMessage({ type: 'error', text: 'PDF export failed.' })
     }
   }
 
@@ -156,6 +171,8 @@ export default function Reports() {
 
   return (
     <div className="max-w-7xl mx-auto min-h-full space-y-8">
+      <StatusPopup message={statusMessage} onClose={() => setStatusMessage(null)} />
+
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-text-secondary">Analytics</p>
@@ -199,6 +216,22 @@ export default function Reports() {
       {reportType === 'sales' && (
         <div className="card p-6">
           <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-text-secondary mb-4">Filters</h2>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {[
+              { label: 'Today', days: 1 },
+              { label: '7 days', days: 7 },
+              { label: '30 days', days: 30 },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => applyDatePreset(preset.days)}
+                className="rounded-2xl border border-border bg-white px-4 py-2 text-xs font-bold text-text-secondary transition hover:border-brand-blue hover:text-brand-blue"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-col gap-4 md:flex-row md:items-end">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-text-secondary mb-2">Start Date</label>
@@ -256,11 +289,11 @@ export default function Reports() {
           </div>
           <div className="card p-6 bg-success-light border-l-4 border-success">
             <p className="text-xs font-semibold text-text-secondary uppercase">Total Revenue</p>
-            <p className="mt-2 text-3xl font-black text-success">₵ {totalRevenue.toFixed(2)}</p>
+            <p className="mt-2 text-3xl font-black text-success">{formatCurrency(totalRevenue)}</p>
           </div>
           <div className="card p-6 bg-info-light border-l-4 border-info">
             <p className="text-xs font-semibold text-text-secondary uppercase">Average Sale</p>
-            <p className="mt-2 text-3xl font-black text-info">₵ {(totalSales > 0 ? totalRevenue / totalSales : 0).toFixed(2)}</p>
+            <p className="mt-2 text-3xl font-black text-info">{formatCurrency(totalSales > 0 ? totalRevenue / totalSales : 0)}</p>
           </div>
         </div>
       )}
@@ -311,7 +344,7 @@ export default function Reports() {
                       <td className="px-4 py-3 font-mono text-xs">{sale.clientId}</td>
                       <td className="px-4 py-3">{new Date(sale.createdAt).toLocaleString()}</td>
                       <td className="px-4 py-3">{sale.customer?.name || 'Cash Sale'}</td>
-                      <td className="px-4 py-3 text-right font-semibold">GH₵ {Number(sale.total || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right font-semibold">{formatCurrency(sale.total)}</td>
                       <td className="px-4 py-3 text-center">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -339,7 +372,7 @@ export default function Reports() {
                 ) : (
                   <tr>
                     <td colSpan="6" className="px-4 py-8 text-center text-text-secondary">
-                      No sales data found
+                      No sales transactions found for the selected filters.
                     </td>
                   </tr>
                 )}
@@ -361,12 +394,12 @@ export default function Reports() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-text-primary">₵ {product.revenue?.toFixed(2) || 0}</p>
+                    <p className="font-semibold text-text-primary">{formatCurrency(product.revenue)}</p>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-text-secondary">No product data found</div>
+              <div className="text-center py-8 text-text-secondary">No best-selling product data found yet.</div>
             )}
           </div>
         ) : (
@@ -384,59 +417,45 @@ export default function Reports() {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-text-secondary">No low stock items</div>
+              <div className="text-center py-8 text-text-secondary">No low stock items found.</div>
             )}
           </div>
         )}
       </div>
 
       {receiptSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-text-secondary">Receipt Preview</p>
-                <h2 className="mt-1 text-lg font-black text-text-primary">Sale Receipt</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setReceiptSale(null)}
-                className="rounded-2xl border border-border bg-white p-2 text-text-secondary transition hover:bg-gray-50"
-                aria-label="Close receipt preview"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-auto bg-slate-100 px-4 py-5">
-              <div className="mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
-                <iframe
-                  title="Receipt preview"
-                  srcDoc={getReceiptHtml(receiptSale)}
-                  className="h-[620px] w-full border-0 bg-white"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 border-t border-border bg-white px-5 py-4">
-              <button
-                type="button"
-                onClick={() => setReceiptSale(null)}
-                className="rounded-2xl border border-border bg-white px-5 py-3 text-sm font-bold text-text-secondary transition hover:bg-gray-50"
-              >
+        <Modal
+          open={Boolean(receiptSale)}
+          onClose={() => setReceiptSale(null)}
+          eyebrow="Receipt Preview"
+          title="Sale Receipt"
+          size="receipt"
+          bodyClassName="bg-slate-100 px-4 py-5"
+          footer={(
+            <div className="flex items-center justify-end gap-3">
+              <Button type="button" variant="secondary" onClick={() => setReceiptSale(null)}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => {
                   printReceipt(receiptSale)
                   setReceiptSale(null)
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand-blue/20 transition hover:bg-brand-blue-dark"
               >
                 <Printer size={17} /> Print
-              </button>
+              </Button>
             </div>
+          )}
+        >
+          <div className="mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
+            <iframe
+              title="Receipt preview"
+              srcDoc={getReceiptHtml(receiptSale)}
+              className="h-[620px] w-full border-0 bg-white"
+            />
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

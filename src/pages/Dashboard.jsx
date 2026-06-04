@@ -141,10 +141,10 @@ export default function Dashboard() {
 
       {/* Stat Cards - 2x2 on Mobile, 4 Columns on Desktop */}
       <div className="grid grid-cols-2 gap-4 md:gap-5 xl:grid-cols-4">
-        <StatCard label="Total Products" value={displayProductCount} icon={Package} tone="blue" />
-        <StatCard label="Low Stock Items" value={displayLowStockCount} icon={AlertTriangle} tone="amber" />
-        <StatCard label="Today's Sales" value={`GHS ${displayTodayTotal.toFixed(2)}`} icon={Banknote} tone="green" />
-        <StatCard label="Outstanding Credit" value={`GHS ${displayOutstandingCredit.toFixed(2)}`} icon={CreditCard} tone="red" />
+        <StatCard label="Total Products" value={displayProductCount} icon={Package} tone="blue" to="/products" />
+        <StatCard label="Low Stock Items" value={displayLowStockCount} icon={AlertTriangle} tone="amber" to="/stock-audit" />
+        <StatCard label="Today's Sales" value={`GHS ${displayTodayTotal.toFixed(2)}`} icon={Banknote} tone="green" to="/reports" />
+        <StatCard label="Outstanding Credit" value={`GHS ${displayOutstandingCredit.toFixed(2)}`} icon={CreditCard} tone="red" to="/customers" />
       </div>
 
       {/* Main Content Grid */}
@@ -296,11 +296,10 @@ const statTones = {
   },
 }
 
-function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
+function StatCard({ label, value, icon: Icon, tone = 'blue', to }) {
   const color = statTones[tone] || statTones.blue
-
-  return (
-    <div className={`flex flex-col justify-between gap-3 rounded-3xl border p-4 shadow-sm sm:flex-row sm:items-start sm:gap-0 sm:p-6 ${color.card}`}>
+  const content = (
+    <>
       <div className="flex-1 min-w-0 text-left">
         <p className="text-[10px] sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-text-secondary truncate">{label}</p>
         <p className="mt-1 sm:mt-4 text-lg sm:text-2xl font-black text-text-primary truncate">{value}</p>
@@ -308,6 +307,20 @@ function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
       <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl shrink-0 self-end sm:self-auto shadow-sm ${color.icon}`}>
         <Icon size={20} className="sm:w-6 sm:h-6" />
       </div>
+    </>
+  )
+
+  if (to) {
+    return (
+      <Link className={`flex flex-col justify-between gap-3 rounded-3xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-float sm:flex-row sm:items-start sm:gap-0 sm:p-6 ${color.card}`} to={to}>
+        {content}
+      </Link>
+    )
+  }
+
+  return (
+    <div className={`flex flex-col justify-between gap-3 rounded-3xl border p-4 shadow-sm sm:flex-row sm:items-start sm:gap-0 sm:p-6 ${color.card}`}>
+      {content}
     </div>
   )
 }

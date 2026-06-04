@@ -84,12 +84,6 @@ body {
 }
 
 button,
-
-* {
-  box-sizing: border-box;
-}
-
-button,
 input,
 textarea,
 select {

@@ -34,7 +34,11 @@ export const AuthProvider = ({ children }) => {
       })
       .catch(() => {
         if (!active) return
-        logout()
+        setToken(null)
+        setUser(null)
+        localStorage.removeItem(AUTH_TOKEN_KEY)
+        localStorage.removeItem(AUTH_USER_KEY)
+        setAuthToken(null)
       })
 
     return () => {

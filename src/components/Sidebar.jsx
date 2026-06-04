@@ -44,7 +44,7 @@ const navSections = [
   },
 ]
 
-export default function Sidebar({ isOpen, toggleSidebar }) {
+export default function Sidebar({ isOpen, onClose }) {
   const { user } = useAuth()
   const roleBadge = user?.role === 'ADMIN'
     ? 'bg-brand-blue-light text-brand-blue'
@@ -58,7 +58,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={toggleSidebar} />
+        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} />
       )}
 
       <aside className={`fixed inset-x-0 top-16 bottom-0 z-50 w-72 transform border-r border-border bg-white transition-transform duration-300 lg:fixed lg:inset-y-0 lg:top-0 lg:left-0 lg:translate-x-0 lg:w-60 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -77,7 +77,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                     <NavLink
                       key={item.path}
                       to={item.path}
-                      onClick={toggleSidebar}
+                      onClick={onClose}
                       className={({ isActive }) => `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? 'bg-brand-blue-light text-brand-blue shadow-sm border-l-4 border-brand-blue' : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'}`}
                     >
                       {item.icon}
@@ -111,7 +111,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={toggleSidebar}
+                onClick={onClose}
                 className={({ isActive }) => `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? 'bg-brand-blue-light text-brand-blue' : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'}`}
               >
                 {item.icon}

@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from 'react'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { LogOut, Moon, Search, Sun, UserCircle, Menu } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
@@ -20,25 +20,14 @@ export default function Layout() {
   const [search, setSearch] = useState('')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const location = useLocation()
-  const navigate = useNavigate()
 
   const pageTitle = useMemo(() => pageTitles[location.pathname] || 'Palace Line', [location.pathname])
 
   const toggleSidebar = () => setMobileSidebarOpen((open) => !open)
-  const closeSidebar = () => setMobileSidebarOpen(false)
-  const handleLogout = () => {
-    closeSidebar()
-    logout()
-    navigate('/login', { replace: true })
-  }
-
-  useEffect(() => {
-    closeSidebar()
-  }, [location.pathname])
 
   return (
     <div className="min-h-screen bg-bg-canvas text-text-primary">
-      <Sidebar isOpen={mobileSidebarOpen} toggleSidebar={toggleSidebar} closeSidebar={closeSidebar} />
+      <Sidebar isOpen={mobileSidebarOpen} toggleSidebar={toggleSidebar} />
 
       <div className="lg:ml-60 flex min-h-0 flex-col">
         <header className="fixed inset-x-0 top-0 z-30 border-b border-border bg-white/95 backdrop-blur lg:hidden">
@@ -51,18 +40,12 @@ export default function Layout() {
               <h1 className="truncate text-lg font-black text-text-primary">{pageTitle}</h1>
             </div>
             <div className="flex items-center gap-2">
-              {user?.role === 'ADMIN' ? (
-                <Link to="/settings" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-gray-50">
-                  <UserCircle size={18} className="text-brand-blue" />
-                </Link>
-              ) : (
-                <div className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary">
-                  <UserCircle size={18} className="text-brand-blue" />
-                </div>
-              )}
+              <Link to="/settings" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-gray-50">
+                <UserCircle size={18} className="text-brand-blue" />
+              </Link>
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={logout}
                 aria-label="Logout"
                 title="Logout"
                 className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-danger/20 bg-white text-danger transition hover:bg-danger-light"
@@ -100,20 +83,13 @@ export default function Layout() {
               >
                 {theme === 'dark' ? <Sun size={18} className="text-current" /> : <Moon size={18} className="text-current" />}
               </button>
-              {user?.role === 'ADMIN' ? (
-                <Link to="/settings" className="flex items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2 hover:shadow-sm transition">
-                  <UserCircle size={20} className="text-brand-blue" />
-                  <span className="hidden sm:inline text-sm font-semibold text-text-primary">{user?.name}</span>
-                </Link>
-              ) : (
-                <div className="flex items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2">
-                  <UserCircle size={20} className="text-brand-blue" />
-                  <span className="hidden sm:inline text-sm font-semibold text-text-primary">{user?.name}</span>
-                </div>
-              )}
+              <Link to="/settings" className="flex items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2 hover:shadow-sm transition">
+                <UserCircle size={20} className="text-brand-blue" />
+                <span className="hidden sm:inline text-sm font-semibold text-text-primary">{user?.name}</span>
+              </Link>
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={logout}
                 aria-label="Logout"
                 title="Logout"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-danger/20 bg-white text-danger transition hover:bg-danger-light"

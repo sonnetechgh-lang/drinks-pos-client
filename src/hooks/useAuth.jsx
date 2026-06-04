@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { loginUser } from '../api/auth.js'
 import { setAuthToken } from '../api/client.js'
+import { getCurrentUser } from '../api/users.js'
 
 const AUTH_TOKEN_KEY = 'palace-line-auth-token'
 const AUTH_USER_KEY = 'palace-line-user'
@@ -19,6 +20,26 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     setAuthToken(token)
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+
+    let active = true
+    getCurrentUser()
+      .then((currentUser) => {
+        if (!active) return
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentUser))
+        setUser(currentUser)
+      })
+      .catch(() => {
+        if (!active) return
+        logout()
+      })
+
+    return () => {
+      active = false
+    }
   }, [token])
 
   const login = async ({ email, password }) => {

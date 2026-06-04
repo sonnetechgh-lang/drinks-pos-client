@@ -27,6 +27,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [formError, setFormError] = useState('')
+  const [statusMessage, setStatusMessage] = useState(null)
   const [saving, setSaving] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -60,6 +61,7 @@ export default function CustomersPage() {
 
     setSaving(true)
     setFormError('')
+    setStatusMessage(null)
     try {
       const newCustomer = await createCustomer({
         name: name.trim(),
@@ -74,8 +76,11 @@ export default function CustomersPage() {
       setNotes('')
       setCreditLimit('')
       setShowCreateModal(false)
+      setStatusMessage({ type: 'success', text: `Customer ${newCustomer.name} added successfully.` })
     } catch (err) {
-      setFormError(err.response?.data?.message || err.message || 'Failed to create customer.')
+      const message = err.response?.data?.message || err.message || 'Failed to create customer.'
+      setFormError(message)
+      setStatusMessage({ type: 'error', text: message })
       console.error(err)
     } finally {
       setSaving(false)
@@ -91,6 +96,7 @@ export default function CustomersPage() {
     }
 
     setSavingPayment(true)
+    setStatusMessage(null)
     try {
       await addCustomerPaymentToQueue({
         customerId: paymentCustomerId,
@@ -106,8 +112,9 @@ export default function CustomersPage() {
       setMomoReference('')
       setPaymentNote('')
       setShowPaymentModal(false)
-    } catch {
-      alert('Failed to record payment')
+      setStatusMessage({ type: 'success', text: 'Customer payment recorded successfully.' })
+    } catch (err) {
+      setStatusMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Failed to record payment.' })
     } finally {
       setSavingPayment(false)
     }
@@ -123,6 +130,7 @@ export default function CustomersPage() {
   const handleSaveEdit = async () => {
     if (!editingCustomer || !editName.trim()) return
     setSavingEdit(true)
+    setStatusMessage(null)
     try {
       const updated = await updateCustomer(editingCustomer.id, {
         name: editName.trim(),
@@ -131,9 +139,10 @@ export default function CustomersPage() {
       })
       setCustomers((prev) => prev.map((customer) => (customer.id === updated.id ? { ...customer, ...updated } : customer)))
       setEditingCustomer(null)
+      setStatusMessage({ type: 'success', text: `Customer ${updated.name} updated successfully.` })
     } catch (err) {
       console.error(err)
-      alert('Failed to update customer')
+      setStatusMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Failed to update customer.' })
     } finally {
       setSavingEdit(false)
     }
@@ -143,9 +152,10 @@ export default function CustomersPage() {
     try {
       const updated = await updateCustomer(customer.id, { active: !customer.active })
       setCustomers((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
+      setStatusMessage({ type: 'success', text: `${updated.name} is now ${updated.active ? 'active' : 'blocked'}.` })
     } catch (err) {
       console.error(err)
-      alert('Failed to update status')
+      setStatusMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Failed to update status.' })
     }
   }
 
@@ -177,6 +187,16 @@ export default function CustomersPage() {
       <div className={`grid gap-6 ${editingCustomer ? 'xl:grid-cols-[1.6fr_1fr]' : ''}`}>
         <section className="space-y-6">
           <ErrorBanner message={error} onRetry={() => loadCustomers(search)} />
+
+          {statusMessage && (
+            <div className={`rounded-3xl border px-4 py-3 text-sm font-semibold ${
+              statusMessage.type === 'success'
+                ? 'border-success/20 bg-success-light text-success'
+                : 'border-danger/20 bg-danger-light text-danger'
+            }`}>
+              {statusMessage.text}
+            </div>
+          )}
 
           <div className="card p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

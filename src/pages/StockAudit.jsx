@@ -4,6 +4,7 @@ import { getStockLevels, updateStockAudit } from '../api/products'
 import { CheckCircle, Package, Search } from 'lucide-react'
 import Skeleton from '../components/Skeleton'
 import ErrorBanner from '../components/ErrorBanner'
+import { db } from '../db/dexie'
 
 export default function StockAudit() {
   const [products, setProducts] = useState([])
@@ -11,7 +12,7 @@ export default function StockAudit() {
   const [searchTerm, setSearchTerm] = useState('')
   const [auditData, setAuditData] = useState({}) // { productId: actualQuantity }
   const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(null)
   const [error, setError] = useState('')
 
   const fetchProducts = useCallback(async () => {
@@ -22,6 +23,8 @@ export default function StockAudit() {
       setError('')
     } catch (error) {
       setError(error.response?.data?.message || error.message || 'Failed to load stock levels.')
+      const cachedProducts = await db.products.toArray()
+      if (cachedProducts.length > 0) setProducts(cachedProducts)
       console.error('Failed to fetch products', error)
     } finally {
       setLoading(false)
@@ -51,17 +54,20 @@ export default function StockAudit() {
         note: `Physical audit: ${actualQuantity} units found`
       })
       
-      setMessage(`Successfully updated ${product.name}`)
+      setMessage({ type: 'success', text: `Successfully updated ${product.name}` })
       setAuditData(prev => {
         const next = { ...prev }
         delete next[product.id]
         return next
       })
       fetchProducts()
-      setTimeout(() => setMessage(''), 3000)
+      setTimeout(() => setMessage(null), 3000)
     } catch (error) {
       console.error('Audit failed', error)
-      alert('Failed to update stock. Please try again.')
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || error.message || 'Failed to update stock. Please try again.',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -102,8 +108,12 @@ export default function StockAudit() {
             />
           </div>
           {message && (
-            <div className="flex items-center gap-2 text-success font-bold text-sm">
-              <CheckCircle size={16} /> {message}
+            <div className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-bold ${
+              message.type === 'success'
+                ? 'bg-success-light text-success'
+                : 'bg-danger-light text-danger'
+            }`}>
+              <CheckCircle size={16} /> {message.text}
             </div>
           )}
         </div>

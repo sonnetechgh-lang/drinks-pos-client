@@ -5,8 +5,23 @@ import { exportToExcel, exportToPDF } from '../utils/exportUtils'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import Skeleton from '../components/Skeleton'
 import ErrorBanner from '../components/ErrorBanner'
+import { db } from '../db/dexie'
 
 const defaultPackageOptions = [{ name: 'Unit', unitsPerBase: 1, price: '', wholesalePrice: '', isDefault: true, active: true }]
+
+const getCachedProducts = async () => {
+  const cachedProducts = await db.products.toArray()
+  const cachedCategories = Array.from(
+    new Map(
+      cachedProducts
+        .filter((product) => product.category)
+        .map((product) => [product.category.id, product.category])
+    ).values()
+  )
+
+  return { cachedProducts, cachedCategories }
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
@@ -54,6 +69,11 @@ export default function ProductsPage() {
     } catch (err) {
       const message = err.response?.data?.message || err.message || 'Failed to load products and categories.'
       setError(message)
+      const { cachedProducts, cachedCategories } = await getCachedProducts()
+      if (cachedProducts.length > 0) {
+        setProducts(cachedProducts)
+        setCategories(cachedCategories)
+      }
       console.error('Failed to fetch data', err)
     } finally {
       setLoading(false)

@@ -5,6 +5,11 @@ export const getUsers = async () => {
   return response.data.data
 }
 
+export const getCurrentUser = async () => {
+  const response = await client.get('/v1/users/me')
+  return response.data.data.user
+}
+
 export const createUser = async (payload) => {
   const response = await client.post('/v1/users', payload)
   return response.data.data

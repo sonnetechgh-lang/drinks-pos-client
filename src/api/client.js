@@ -24,4 +24,19 @@ client.interceptors.request.use((config) => {
   return config
 })
 
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error.response?.data?.message || ''
+    if (error.response?.status === 401 && /disabled|invalid token|unauthorized/i.test(message)) {
+      authToken = null
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(AUTH_TOKEN_KEY)
+        localStorage.removeItem('palace-line-user')
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
 export default client

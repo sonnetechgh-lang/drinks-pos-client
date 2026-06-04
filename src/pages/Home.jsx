@@ -27,6 +27,7 @@ export default function Home() {
   const [paidAmount, setPaidAmount] = useState('')
   const [discount, setDiscount] = useState('')
   const [momoReference, setMomoReference] = useState('')
+  const [checkoutMessage, setCheckoutMessage] = useState(null)
 
   const liveProducts = useLiveQuery(() => db.products.toArray())
   const liveCustomers = useLiveQuery(() => db.customers.where('active').notEqual(0).toArray())
@@ -85,6 +86,7 @@ export default function Home() {
   }
 
   const addToCart = (product) => {
+    setCheckoutMessage(null)
     if (lastSale && cart.length === 0) {
       setLastSale(null)
     }
@@ -226,8 +228,12 @@ export default function Home() {
       setNewCustomerName('')
       setNewCustomerPhone('')
       setShowNewCustomer(false)
+      setCheckoutMessage({
+        type: 'success',
+        text: online ? `Customer ${customer.name} added.` : `Customer ${customer.name} saved locally and will sync when online.`,
+      })
     } catch {
-      alert('Failed to create customer')
+      setCheckoutMessage({ type: 'error', text: 'Failed to create customer.' })
     }
   }
 
@@ -301,7 +307,7 @@ export default function Home() {
     }
 
     try {
-      await addToQueue(sale)
+      const result = await addToQueue(sale)
       setLastSale(sale)
       setCart([])
       setDiscount('')
@@ -311,9 +317,15 @@ export default function Home() {
       setMomoReference('')
       setShowCustomerDropdown(false)
       setShowNewCustomer(false)
+      setCheckoutMessage({
+        type: result.synced ? 'success' : 'warning',
+        text: result.synced
+          ? 'Sale completed and synced. Stock has been updated.'
+          : `Sale saved locally. Stock was updated here and sync will retry. ${result.message || ''}`.trim(),
+      })
       generateReceipt(sale)
     } catch {
-      alert('Failed to save transaction locally')
+      setCheckoutMessage({ type: 'error', text: 'Failed to save transaction locally.' })
     }
   }
 
@@ -333,6 +345,18 @@ export default function Home() {
             : 'Offline — transactions save locally and sync when online.'}
         </div>
       </div>
+
+      {checkoutMessage && (
+        <div className={`mb-6 rounded-3xl border px-4 py-3 text-sm font-semibold ${
+          checkoutMessage.type === 'success'
+            ? 'border-success/20 bg-success-light text-success'
+            : checkoutMessage.type === 'warning'
+              ? 'border-warning/20 bg-warning-light text-warning'
+              : 'border-danger/20 bg-danger-light text-danger'
+        }`}>
+          {checkoutMessage.text}
+        </div>
+      )}
 
       <main className="flex-1 flex flex-col lg:grid lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 flex flex-col gap-6">
@@ -690,6 +714,7 @@ export default function Home() {
                   if (!window.confirm('Are you sure you want to clear the cart?')) return
                   setCart([])
                   setLastSale(null)
+                  setCheckoutMessage(null)
                   setPaidAmount('')
                   setSelectedCustomerId('')
                   setCustomerSearch('')

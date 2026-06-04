@@ -4,6 +4,27 @@ import { getProducts } from '../api/products'
 
 let activeFlush = null
 
+const getSaleItemQuantity = (item) => {
+  const quantity = Number(item.baseQuantity ?? item.quantity ?? 0)
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 0
+}
+
+const applyLocalSaleStock = async (sale) => {
+  const items = sale.items || []
+  if (items.length === 0) return
+
+  await db.transaction('rw', db.products, async () => {
+    for (const item of items) {
+      if (!item.productId) continue
+      const product = await db.products.get(item.productId)
+      if (!product) continue
+
+      const nextStock = Math.max(0, Number(product.stock || 0) - getSaleItemQuantity(item))
+      await db.products.update(item.productId, { stock: nextStock })
+    }
+  })
+}
+
 export const addCustomerToQueue = async (customer) => {
   const record = {
     ...customer,
@@ -38,12 +59,16 @@ export const addToQueue = async (sale) => {
   
   // 1. Write to local Dexie immediately
   await db.syncQueue.add(saleRecord)
+  await applyLocalSaleStock(saleRecord)
   
   // 2. Attempt background sync
   try {
     await flushQueue()
-  } catch {
+    return { sale: saleRecord, synced: true }
+  } catch (err) {
+    const message = err.response?.data?.message || err.message || 'Sync failed.'
     console.warn('Sync failed, sale remains in queue for later.')
+    return { sale: saleRecord, synced: false, message }
   }
 }
 

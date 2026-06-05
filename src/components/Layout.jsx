@@ -1,9 +1,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useMemo, useEffect } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LogOut, Moon, Sun, UserCircle, Menu } from 'lucide-react'
+import { LogOut, UserCircle, Menu } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { useTheme } from '../hooks/useTheme'
 import Sidebar from './Sidebar'
 
 const pageTitles = {
@@ -19,7 +18,6 @@ const pageTitles = {
 
 export default function Layout() {
   const { user, logout } = useAuth()
-  const { theme, toggleTheme } = useTheme()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const location = useLocation()
 
@@ -95,22 +93,7 @@ export default function Layout() {
               <h1 className="truncate text-xl font-black text-text-primary">Hello, {user?.name || 'User'}.</h1>
             </div>
 
-            <div className="hidden md:flex flex-1 max-w-xl items-center justify-end">
-              <span className="rounded-full border border-border bg-bg-canvas px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-text-secondary">
-                {pageTitle}
-              </span>
-            </div>
-
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={toggleTheme}
-                aria-label={`Switch to ${theme === 'dark' ? 'day' : 'night'} theme`}
-                title={`Switch to ${theme === 'dark' ? 'day' : 'night'} theme`}
-                className={`hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition ${theme === 'dark' ? 'border-border bg-bg-card text-warning hover:bg-brand-blue-light' : 'border-border bg-white text-text-secondary hover:bg-brand-blue-light hover:text-brand-blue'}`}
-              >
-                {theme === 'dark' ? <Sun size={18} className="text-current" /> : <Moon size={18} className="text-current" />}
-              </button>
               {userControl}
               <button
                 type="button"

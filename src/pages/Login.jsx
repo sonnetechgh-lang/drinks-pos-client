@@ -33,8 +33,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-brand-blue-light px-4 py-10 dark:bg-bg-canvas">
-      <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 shadow-sm dark:border-border dark:bg-bg-card dark:shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center bg-brand-blue-light px-4 py-10">
+      <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-semibold text-text-primary mb-2">Sign in to {businessDetails.name}</h1>
         <p className="text-sm text-text-secondary mb-6">Use your cashier or admin credentials to continue.</p>
         <form className="space-y-4" onSubmit={handleSubmit}>

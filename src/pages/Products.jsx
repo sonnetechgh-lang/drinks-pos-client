@@ -391,13 +391,13 @@ export default function ProductsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleExportPDF}
-            className="inline-flex items-center gap-2 rounded-2xl border border-border bg-white px-5 py-4 text-sm font-bold text-text-secondary transition hover:bg-gray-50 active:scale-95 dark:bg-bg-card dark:hover:border-brand-blue dark:hover:bg-bg-elevated dark:hover:text-text-primary"
+            className="inline-flex items-center gap-2 rounded-2xl border border-border bg-white px-5 py-4 text-sm font-bold text-text-secondary transition hover:bg-gray-50 active:scale-95"
           >
             <FileText size={18} /> Export PDF
           </button>
           <button
             onClick={handleExportExcel}
-            className="inline-flex items-center gap-2 rounded-2xl border border-border bg-white px-5 py-4 text-sm font-bold text-text-secondary transition hover:bg-gray-50 active:scale-95 dark:bg-bg-card dark:hover:border-brand-blue dark:hover:bg-bg-elevated dark:hover:text-text-primary"
+            className="inline-flex items-center gap-2 rounded-2xl border border-border bg-white px-5 py-4 text-sm font-bold text-text-secondary transition hover:bg-gray-50 active:scale-95"
           >
             <Table size={18} /> Export Excel
           </button>
@@ -434,7 +434,7 @@ export default function ProductsPage() {
                 className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
                   selectedCategory === cat
                     ? 'bg-brand-blue text-white shadow-md'
-                    : 'bg-white border border-border text-text-secondary hover:bg-gray-50 dark:bg-bg-elevated dark:hover:border-brand-blue dark:hover:bg-brand-blue-light/40 dark:hover:text-text-primary'
+                    : 'bg-white border border-border text-text-secondary hover:bg-gray-50'
                 }`}
               >
                 {cat}
@@ -479,8 +479,8 @@ export default function ProductsPage() {
                     <td className="px-6 py-4">
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
                         isPackagedProd
-                          ? 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-400/30 dark:bg-purple-500/15 dark:text-purple-200'
-                          : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-200'
+                          ? 'border-purple-200 bg-purple-50 text-purple-700'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
                       }`}>
                         {product.category?.name}
                       </span>
@@ -492,7 +492,7 @@ export default function ProductsPage() {
                       <div className="flex flex-wrap gap-1">
                         {product.packageOptions?.length > 0 ? (
                           product.packageOptions.map((opt, idx) => (
-                            <span key={idx} className="rounded-md border border-border bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-secondary dark:bg-bg-elevated dark:text-text-primary">
+                            <span key={idx} className="rounded-md border border-border bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-secondary">
                               {opt.name} ({opt.unitsPerBase})
                             </span>
                           ))
@@ -530,7 +530,7 @@ export default function ProductsPage() {
                         </button>
                         <button 
                           onClick={() => handleOpenModal(product)} 
-                          className="flex h-9 w-9 items-center justify-center rounded-xl text-text-secondary transition hover:bg-gray-100 dark:hover:bg-bg-elevated dark:hover:text-text-primary"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl text-text-secondary transition hover:bg-gray-100"
                           title="Edit"
                           aria-label={`Edit ${product.name}`}
                         >
@@ -555,7 +555,7 @@ export default function ProductsPage() {
         
         {filteredProducts.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center py-20 text-text-secondary">
-            <div className="rounded-full bg-gray-50 p-6 dark:bg-bg-elevated">
+            <div className="rounded-full bg-gray-50 p-6">
               <Package size={48} className="text-gray-200" />
             </div>
             <p className="mt-4 font-semibold">No products found matching your filters.</p>
@@ -672,7 +672,7 @@ export default function ProductsPage() {
               </div>
 
               {isPackaged ? (
-                <div className="space-y-6 rounded-[1.5rem] border border-brand-blue-light/50 bg-brand-blue-light/20 p-6 dark:border-brand-blue/30 dark:bg-brand-blue-light/25">
+                <div className="space-y-6 rounded-[1.5rem] border border-brand-blue-light/50 bg-brand-blue-light/20 p-6">
                   <div className="flex items-center gap-2 text-brand-blue mb-2">
                     <Info size={16} />
                     <span className="text-xs font-bold uppercase tracking-wider">{currentCategory?.name} Configuration</span>
@@ -743,7 +743,7 @@ export default function ProductsPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-border bg-white/60 p-4 dark:bg-bg-elevated">
+                  <div className="rounded-2xl border border-border bg-white/60 p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-text-secondary">Computed Stock:</span>
                       <span className="text-lg font-black text-brand-blue">{calculatedStock} Units</span>
@@ -767,7 +767,7 @@ export default function ProductsPage() {
               )}
 
               {!isPackaged && (
-                <div className="space-y-4 rounded-[1.5rem] border border-border bg-gray-50 p-6 dark:bg-bg-subtle">
+                <div className="space-y-4 rounded-[1.5rem] border border-border bg-gray-50 p-6">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-bold text-text-primary uppercase tracking-wider">Package Options</label>
                     <button 
@@ -781,7 +781,7 @@ export default function ProductsPage() {
                   
                   <div className="space-y-3">
                     {formData.packageOptions.map((option, index) => (
-                      <div key={index} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-border bg-white p-3 shadow-sm dark:bg-bg-card">
+                      <div key={index} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-border bg-white p-3 shadow-sm">
                         <div className="col-span-3">
                           <input
                             value={option.name}
@@ -882,7 +882,7 @@ export default function ProductsPage() {
                     className={`rounded-2xl py-4 text-sm font-bold transition-all ${
                       stockData.type === 'RESTOCK' 
                         ? 'bg-brand-blue text-white shadow-md' 
-                        : 'bg-white border border-border text-text-secondary hover:bg-gray-50 dark:bg-bg-elevated dark:hover:border-brand-blue dark:hover:bg-brand-blue-light/30 dark:hover:text-text-primary'
+                        : 'bg-white border border-border text-text-secondary hover:bg-gray-50'
                     }`}
                   >
                     Restock
@@ -893,7 +893,7 @@ export default function ProductsPage() {
                     className={`rounded-2xl py-4 text-sm font-bold transition-all ${
                       stockData.type === 'ADJUSTMENT' 
                         ? 'bg-danger text-white shadow-md' 
-                        : 'bg-white border border-border text-text-secondary hover:bg-gray-50 dark:bg-bg-elevated dark:hover:border-danger dark:hover:bg-danger-light/30 dark:hover:text-text-primary'
+                        : 'bg-white border border-border text-text-secondary hover:bg-gray-50'
                     }`}
                   >
                     Deduct
@@ -967,7 +967,7 @@ export default function ProductsPage() {
               required
             />
           </div>
-          <label className="flex items-center gap-3 rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-text-primary dark:bg-bg-elevated">
+          <label className="flex items-center gap-3 rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-text-primary">
             <input
               type="checkbox"
               checked={newCategoryData.hasPackaging}

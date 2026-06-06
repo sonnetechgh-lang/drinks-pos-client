@@ -279,20 +279,28 @@ export default function Dashboard() {
 
 const statTones = {
   blue: {
-    card: 'border-brand-blue/20 bg-brand-blue-light/45',
-    icon: 'bg-white text-brand-blue',
+    card: 'bg-brand-blue border-brand-blue shadow-lg shadow-brand-blue/20',
+    icon: 'bg-white/20 text-white',
+    label: 'text-white/80',
+    value: 'text-white',
   },
   amber: {
-    card: 'border-warning/25 bg-warning-light/60',
-    icon: 'bg-white text-warning',
+    card: 'bg-warning border-warning shadow-lg shadow-warning/20',
+    icon: 'bg-white/20 text-white',
+    label: 'text-white/80',
+    value: 'text-white',
   },
   green: {
-    card: 'border-success/25 bg-success-light/60',
-    icon: 'bg-white text-success',
+    card: 'bg-success border-success shadow-lg shadow-success/20',
+    icon: 'bg-white/20 text-white',
+    label: 'text-white/80',
+    value: 'text-white',
   },
   red: {
-    card: 'border-danger/25 bg-danger-light/55',
-    icon: 'bg-white text-danger',
+    card: 'bg-danger border-danger shadow-lg shadow-danger/20',
+    icon: 'bg-white/20 text-white',
+    label: 'text-white/80',
+    value: 'text-white',
   },
 }
 
@@ -301,8 +309,8 @@ function StatCard({ label, value, icon: Icon, tone = 'blue', to }) {
   const content = (
     <>
       <div className="flex-1 min-w-0 text-left">
-        <p className="text-[10px] sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-text-secondary truncate">{label}</p>
-        <p className="mt-1 sm:mt-4 text-lg sm:text-2xl font-black text-text-primary truncate">{value}</p>
+        <p className={`text-[10px] sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] truncate ${color.label}`}>{label}</p>
+        <p className={`mt-1 sm:mt-4 text-lg sm:text-2xl font-black truncate ${color.value}`}>{value}</p>
       </div>
       <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl shrink-0 self-end sm:self-auto shadow-sm ${color.icon}`}>
         <Icon size={20} className="sm:w-6 sm:h-6" />

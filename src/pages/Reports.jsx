@@ -283,17 +283,17 @@ export default function Reports() {
       {/* Summary Cards */}
       {reportType === 'sales' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="card p-6 bg-brand-blue-light border-l-4 border-brand-blue">
-            <p className="text-xs font-semibold text-text-secondary uppercase">Total Transactions</p>
-            <p className="mt-2 text-3xl font-black text-brand-blue">{totalSales}</p>
+          <div className="card p-6 bg-brand-blue border-brand-blue shadow-lg shadow-brand-blue/20">
+            <p className="text-xs font-semibold text-white/80 uppercase">Total Transactions</p>
+            <p className="mt-2 text-3xl font-black text-white">{totalSales}</p>
           </div>
-          <div className="card p-6 bg-success-light border-l-4 border-success">
-            <p className="text-xs font-semibold text-text-secondary uppercase">Total Revenue</p>
-            <p className="mt-2 text-3xl font-black text-success">{formatCurrency(totalRevenue)}</p>
+          <div className="card p-6 bg-success border-success shadow-lg shadow-success/20">
+            <p className="text-xs font-semibold text-white/80 uppercase">Total Revenue</p>
+            <p className="mt-2 text-3xl font-black text-white">{formatCurrency(totalRevenue)}</p>
           </div>
-          <div className="card p-6 bg-info-light border-l-4 border-info">
-            <p className="text-xs font-semibold text-text-secondary uppercase">Average Sale</p>
-            <p className="mt-2 text-3xl font-black text-info">{formatCurrency(totalSales > 0 ? totalRevenue / totalSales : 0)}</p>
+          <div className="card p-6 bg-info border-info shadow-lg shadow-info/20">
+            <p className="text-xs font-semibold text-white/80 uppercase">Average Sale</p>
+            <p className="mt-2 text-3xl font-black text-white">{formatCurrency(totalSales > 0 ? totalRevenue / totalSales : 0)}</p>
           </div>
         </div>
       )}

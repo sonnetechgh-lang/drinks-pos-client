@@ -93,6 +93,7 @@ const buildReceiptHtml = (sale, settings) => {
 
       body {
         margin: 0;
+        padding: 0;
         background: #fff;
         color: #000;
         font-family: "Courier New", Courier, monospace, Arial, sans-serif;
@@ -104,8 +105,9 @@ const buildReceiptHtml = (sale, settings) => {
       .receipt {
         width: ${paperWidth}mm;
         min-height: 100%;
-        padding: 4mm 6mm;
+        padding: 5mm 6mm 10mm 6mm; /* Extra bottom padding for cutter */
         margin: 0 auto;
+        overflow: hidden;
       }
 
       .center {
@@ -176,13 +178,24 @@ const buildReceiptHtml = (sale, settings) => {
         font-size: 11px;
       }
 
+      .developer-credit {
+        margin-top: 8px;
+        font-size: 9px;
+        font-weight: 400;
+        color: #333;
+        border-top: 1px solid #eee;
+        padding-top: 6px;
+      }
+
       @media print {
         body {
           width: ${paperWidth}mm;
+          margin: 0;
+          padding: 0;
         }
 
         .receipt {
-          padding: 4mm 5mm;
+          padding: 5mm 5mm 15mm 5mm;
         }
       }
     </style>
@@ -226,8 +239,12 @@ const buildReceiptHtml = (sale, settings) => {
 
       <div class="divider"></div>
 
-      <footer class="center footer">
-        ${escapeHtml(footerText)}
+      <footer class="center">
+        <div class="footer">${escapeHtml(footerText)}</div>
+        <div class="developer-credit">
+          Developed by Sonnet Solutions<br/>
+          (0257940113 / 0545489242)
+        </div>
       </footer>
     </main>
   </body>
@@ -268,6 +285,7 @@ const printInCurrentPage = (receiptHtml) => {
           display: block !important;
           width: ${paperWidth}mm;
           margin: 0;
+          padding: 0;
           background: #fff;
           color: #000;
           font-family: "Courier New", Courier, monospace, Arial, sans-serif;
@@ -276,7 +294,7 @@ const printInCurrentPage = (receiptHtml) => {
         }
       #receipt-print-root .receipt {
         width: ${paperWidth}mm;
-        padding: 4mm 5mm;
+        padding: 5mm 5mm 15mm 5mm;
       }
     }
   `

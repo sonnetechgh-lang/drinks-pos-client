@@ -106,7 +106,7 @@ const syncLocalCustomers = async () => {
       idMap.set(customer.clientId, customer.id)
       const local = localCustomers.find((item) => item.clientId === customer.clientId)
       if (local) {
-        // Delete the record with UUID ID and replace with integer ID
+        // Delete the record with UUID ID and replace with server ID
         await db.customers.delete(local.id)
         await db.customers.put({ ...local, id: customer.id, synced: 1 })
       }
@@ -121,20 +121,13 @@ const syncLocalCustomers = async () => {
 
 const resolveCustomerIds = async (records, idMap) => {
   return Promise.all(records.map(async (record) => {
-    // If it has a customerId, check if it's a UUID (local) or Integer (server)
-    // UUIDs have dashes, server IDs in this app are integers or strings without dashes
-    const isLocalId = (id) => typeof id === 'string' && id.includes('-')
-    
-    // If it's already a server ID, keep it
-    if (record.customerId && !isLocalId(record.customerId)) return record
-
-    // Try to resolve via client ID map (from the current sync session)
+    // 1. Try to resolve via current session's sync map
     if (record.customerClientId) {
       const mappedId = idMap.get(record.customerClientId)
       if (mappedId) return { ...record, customerId: mappedId }
     }
 
-    // Try to resolve by looking up the local customer in Dexie
+    // 2. Try to resolve by looking up the local customer in Dexie
     if (record.customerClientId) {
       const localCustomer = await db.customers.where('clientId').equals(record.customerClientId).first()
       // Only use the ID if the customer is synced (has a server ID)
@@ -143,9 +136,26 @@ const resolveCustomerIds = async (records, idMap) => {
       }
     }
 
-    // If it was truthy but a local ID, clear it so we don't send UUID to server
-    if (isLocalId(record.customerId)) {
-      return { ...record, customerId: undefined }
+    // 3. If it already has a customerId, verify if it belongs to a synced customer
+    if (record.customerId) {
+      const customer = await db.customers.get(record.customerId)
+      // If the customer exists locally and is NOT synced, it's a local UUID ID.
+      // We should NOT send this local UUID as 'customerId' to the server.
+      if (customer && customer.synced === 0) {
+        return { ...record, customerId: undefined }
+      }
+      // If customer doesn't exist locally, assume it's a legacy server ID (if it exists)
+      // or clear it if it's a UUID pattern (to be safe)
+      if (!customer && typeof record.customerId === 'string' && record.customerId.includes('-')) {
+         // Check if this UUID is in our customerClientId field just in case
+         const byClientId = await db.customers.where('clientId').equals(record.customerId).first()
+         if (byClientId && byClientId.synced === 1) {
+           return { ...record, customerId: byClientId.id }
+         }
+         if (byClientId && byClientId.synced === 0) {
+           return { ...record, customerId: undefined }
+         }
+      }
     }
 
     return record

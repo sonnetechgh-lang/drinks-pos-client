@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { getSalesReport, getBestSellingProducts } from '../api/sales'
 import { getLowStockProducts } from '../api/products'
-import { ChevronRight, Calendar, Eye, FileText, Printer, Table } from 'lucide-react'
+import { getPayments as getCustomerPayments } from '../api/customerPayments'
+import { ChevronRight, Calendar, Eye, FileText, Printer, Table, Banknote } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { exportToExcel, exportToPDF } from '../utils/exportUtils'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
@@ -18,12 +19,14 @@ export default function Reports() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
   const [paymentStatus, setPaymentStatus] = useState('')
   const [salesData, setSalesData] = useState([])
+  const [paymentsData, setPaymentsData] = useState([])
   const [bestSellingData, setBestSellingData] = useState([])
   const [lowStockData, setLowStockData] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [totalSales, setTotalSales] = useState(0)
   const [totalRevenue, setTotalRevenue] = useState(0)
+  const [totalDeposits, setTotalDeposits] = useState(0)
   const [receiptSale, setReceiptSale] = useState(null)
   const [statusMessage, setStatusMessage] = useState(null)
 
@@ -36,6 +39,19 @@ export default function Reports() {
         setTotalSales(result?.length || 0)
         const revenue = (Array.isArray(result) ? result : []).reduce((sum, sale) => sum + Number(sale.total || 0), 0)
         setTotalRevenue(revenue)
+      } else if (reportType === 'payments') {
+        const result = await getCustomerPayments()
+        // Filter by date client-side since the current API is simple
+        const filtered = (result || []).filter(p => {
+           const date = new Date(p.createdAt)
+           const start = new Date(startDate)
+           const end = new Date(endDate)
+           end.setHours(23, 59, 59, 999)
+           return date >= start && date <= end
+        })
+        setPaymentsData(filtered)
+        const deposits = filtered.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+        setTotalDeposits(deposits)
       } else if (reportType === 'best-selling') {
         const result = await getBestSellingProducts(20)
         setBestSellingData(Array.isArray(result) ? result : [])
@@ -52,12 +68,10 @@ export default function Reports() {
     }
   }
 
-  useRemoteRefresh(() => fetchReportData({ silent: salesData.length > 0 || bestSellingData.length > 0 || lowStockData.length > 0 }), 20000)
+  useRemoteRefresh(() => fetchReportData({ silent: salesData.length > 0 || paymentsData.length > 0 || bestSellingData.length > 0 || lowStockData.length > 0 }), 20000)
 
   const handleFilterChange = () => {
-    if (reportType === 'sales') {
-      fetchReportData()
-    }
+    fetchReportData()
   }
 
   const applyDatePreset = (days) => {
@@ -85,6 +99,19 @@ export default function Reports() {
         ...s,
         dateStr: new Date(s.createdAt).toLocaleString(),
         customerName: s.customer?.name || 'Cash Sale'
+      }))
+    } else if (reportType === 'payments') {
+      headers = [
+        { key: 'dateStr', label: 'Date' },
+        { key: 'customerName', label: 'Customer' },
+        { key: 'amount', label: 'Amount (GHS)' },
+        { key: 'method', label: 'Method' },
+        { key: 'momoReference', label: 'Reference' }
+      ]
+      data = paymentsData.map(p => ({
+        ...p,
+        dateStr: new Date(p.createdAt).toLocaleString(),
+        customerName: p.customer?.name || 'N/A'
       }))
     } else if (reportType === 'best-selling') {
       headers = [
@@ -130,6 +157,19 @@ export default function Reports() {
         ...s,
         dateStr: new Date(s.createdAt).toLocaleString(),
         customerName: s.customer?.name || 'Cash Sale'
+      }))
+    } else if (reportType === 'payments') {
+      title = 'Customer Payments & Deposits Report'
+      headers = [
+        { key: 'dateStr', label: 'Date' },
+        { key: 'customerName', label: 'Customer' },
+        { key: 'amount', label: 'Amount', formatter: (v) => Number(v).toFixed(2) },
+        { key: 'method', label: 'Method' }
+      ]
+      data = paymentsData.map(p => ({
+        ...p,
+        dateStr: new Date(p.createdAt).toLocaleString(),
+        customerName: p.customer?.name || 'N/A'
       }))
     } else if (reportType === 'best-selling') {
       title = 'Best Selling Products Report'
@@ -194,6 +234,7 @@ export default function Reports() {
         <div className="flex flex-wrap gap-3">
           {[
             { value: 'sales', label: 'Sales Report' },
+            { value: 'payments', label: 'Deposits Report' },
             { value: 'best-selling', label: 'Best Selling Products' },
             { value: 'low-stock', label: 'Low Stock Alert' }
           ].map((type) => (
@@ -213,7 +254,7 @@ export default function Reports() {
       </div>
 
       {/* Filters */}
-      {reportType === 'sales' && (
+      {(reportType === 'sales' || reportType === 'payments') && (
         <div className="card p-6">
           <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-text-secondary mb-4">Filters</h2>
           <div className="mb-4 flex flex-wrap gap-2">
@@ -257,19 +298,21 @@ export default function Reports() {
                 />
               </div>
             </div>
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-text-secondary mb-2">Payment Status</label>
-              <select
-                value={paymentStatus}
-                onChange={(e) => setPaymentStatus(e.target.value)}
-                className="w-full px-3 py-2 rounded-2xl border border-border bg-white text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
-              >
-                <option value="">All Status</option>
-                <option value="PAID">Paid</option>
-                <option value="PARTIAL">Partial</option>
-                <option value="CREDIT">Credit</option>
-              </select>
-            </div>
+            {reportType === 'sales' && (
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-text-secondary mb-2">Payment Status</label>
+                <select
+                  value={paymentStatus}
+                  onChange={(e) => setPaymentStatus(e.target.value)}
+                  className="w-full px-3 py-2 rounded-2xl border border-border bg-white text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                >
+                  <option value="">All Status</option>
+                  <option value="PAID">Paid</option>
+                  <option value="PARTIAL">Partial</option>
+                  <option value="CREDIT">Credit</option>
+                </select>
+              </div>
+            )}
             <button
               onClick={handleFilterChange}
               className="px-4 py-2 rounded-2xl bg-brand-blue text-white font-semibold text-sm hover:bg-brand-blue/90 transition"
@@ -298,11 +341,24 @@ export default function Reports() {
         </div>
       )}
 
+      {reportType === 'payments' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="card p-6 bg-success border-success shadow-lg shadow-success/20">
+            <p className="text-xs font-semibold text-white/80 uppercase">Total Deposits</p>
+            <p className="mt-2 text-3xl font-black text-white">{formatCurrency(totalDeposits)}</p>
+          </div>
+          <div className="card p-6 bg-brand-blue border-brand-blue shadow-lg shadow-brand-blue/20">
+            <p className="text-xs font-semibold text-white/80 uppercase">Payment Count</p>
+            <p className="mt-2 text-3xl font-black text-white">{paymentsData.length}</p>
+          </div>
+        </div>
+      )}
+
       {/* Data Table */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-text-primary">
-            {reportType === 'sales' ? 'Sales Transactions' : reportType === 'best-selling' ? 'Best Selling Products' : 'Low Stock Items'}
+            {reportType === 'sales' ? 'Sales Transactions' : reportType === 'payments' ? 'Customer Deposits' : reportType === 'best-selling' ? 'Best Selling Products' : 'Low Stock Items'}
           </h2>
           <div className="flex flex-wrap gap-2">
             <button
@@ -373,6 +429,45 @@ export default function Reports() {
                   <tr>
                     <td colSpan="6" className="px-4 py-8 text-center text-text-secondary">
                       No sales transactions found for the selected filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : reportType === 'payments' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold text-text-secondary">Date & Time</th>
+                  <th className="px-4 py-3 text-left font-semibold text-text-secondary">Customer</th>
+                  <th className="px-4 py-3 text-right font-semibold text-text-secondary">Amount</th>
+                  <th className="px-4 py-3 text-center font-semibold text-text-secondary">Method</th>
+                  <th className="px-4 py-3 text-left font-semibold text-text-secondary">Reference/Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentsData.length > 0 ? (
+                  paymentsData.map((payment) => (
+                    <tr key={payment.id} className="border-b border-border hover:bg-gray-50">
+                      <td className="px-4 py-3">{new Date(payment.createdAt).toLocaleString()}</td>
+                      <td className="px-4 py-3 font-semibold text-text-primary">{payment.customer?.name || 'Unknown'}</td>
+                      <td className="px-4 py-3 text-right font-black text-success">{formatCurrency(payment.amount)}</td>
+                      <td className="px-4 py-3 text-center">
+                         <span className="px-2 py-1 rounded-lg bg-slate-100 text-text-secondary text-[10px] font-bold">
+                           {payment.method}
+                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary italic">
+                        {payment.momoReference || payment.note || '-'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="px-4 py-8 text-center text-text-secondary">
+                      No customer deposits found for the selected dates.
                     </td>
                   </tr>
                 )}
@@ -463,4 +558,3 @@ export default function Reports() {
     </div>
   )
 }
-

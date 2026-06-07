@@ -39,9 +39,9 @@ export default function Home() {
   const [confirmClearCart, setConfirmClearCart] = useState(false)
 
   const liveProducts = useLiveQuery(() => db.products.toArray())
-  const liveCustomers = useLiveQuery(() => db.customers.where('active').notEqual(0).toArray())
+  const liveCustomers = useLiveQuery(() => db.customers.toArray())
   const products = useMemo(() => liveProducts || [], [liveProducts])
-  const customers = useMemo(() => liveCustomers || [], [liveCustomers])
+  const customers = useMemo(() => (liveCustomers || []).filter(c => c.active !== 0 && c.active !== false), [liveCustomers])
 
   const refreshRemoteData = async () => {
     try {

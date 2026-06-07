@@ -1,7 +1,5 @@
 import { defaultReceiptSettings, legacyReceiptDefaults } from '../config/business'
 
-const RECEIPT_WIDTH_MM = 80
-
 const escapeHtml = (value) => String(value ?? '')
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
@@ -44,6 +42,7 @@ const buildReceiptHtml = (sale, settings) => {
   const phone = settings.phone || defaultReceiptSettings.phone
   const footerText = settings.footerText || defaultReceiptSettings.footerText
   const currency = settings.currency || defaultReceiptSettings.currency
+  const paperWidth = settings.paperWidth || 80
   const receiptId = sale.clientId ? sale.clientId.slice(0, 8).toUpperCase() : 'SALE'
   const date = sale.createdAt ? new Date(sale.createdAt) : new Date()
   const paid = Number(sale.amountPaid || 0)
@@ -84,7 +83,7 @@ const buildReceiptHtml = (sale, settings) => {
     <title>Receipt ${escapeHtml(receiptId)}</title>
     <style>
       @page {
-        size: ${RECEIPT_WIDTH_MM}mm 297mm;
+        size: ${paperWidth}mm 297mm;
         margin: 0;
       }
 
@@ -96,15 +95,17 @@ const buildReceiptHtml = (sale, settings) => {
         margin: 0;
         background: #fff;
         color: #000;
-        font-family: Arial, "Helvetica Neue", sans-serif;
-        font-size: 11px;
-        line-height: 1.3;
+        font-family: "Courier New", Courier, monospace, Arial, sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        -webkit-print-color-adjust: exact;
       }
 
       .receipt {
-        width: ${RECEIPT_WIDTH_MM}mm;
+        width: ${paperWidth}mm;
         min-height: 100%;
-        padding: 3mm 4mm;
+        padding: 4mm 6mm;
+        margin: 0 auto;
       }
 
       .center {
@@ -116,21 +117,23 @@ const buildReceiptHtml = (sale, settings) => {
       }
 
       .shop-name {
-        font-size: 17px;
-        font-weight: 700;
+        font-size: 18px;
+        font-weight: 900;
         line-height: 1.2;
         text-transform: uppercase;
+        margin-bottom: 2mm;
       }
 
       .address,
       .muted {
-        color: #111;
-        font-size: 9.5px;
+        color: #000;
+        font-size: 11px;
+        font-weight: 500;
       }
 
       .divider {
-        border-top: 1px dashed #111;
-        margin: 6px 0;
+        border-top: 1px dashed #000;
+        margin: 8px 0;
       }
 
       .meta-row,
@@ -139,49 +142,47 @@ const buildReceiptHtml = (sale, settings) => {
         display: flex;
         justify-content: space-between;
         gap: 8px;
+        margin: 2px 0;
       }
 
-      .meta-row span:first-child,
-      .summary-row span:first-child,
-      .item-line span:first-child {
-        min-width: 0;
+      /* Fallback for when flex-space-between is too tight */
+      .meta-row span:first-child::after,
+      .summary-row span:first-child::after {
+        content: ":";
       }
 
       .item {
         break-inside: avoid;
-        padding: 3px 0;
+        padding: 4px 0;
       }
 
       .item-name {
         font-weight: 700;
         overflow-wrap: anywhere;
-      }
-
-      .summary-row {
-        margin: 3px 0;
+        text-transform: uppercase;
       }
 
       .total {
-        font-size: 15px;
-        font-weight: 700;
+        font-size: 16px;
+        font-weight: 900;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        margin-top: 4px;
       }
 
       .footer {
-        margin-top: 10px;
+        margin-top: 15px;
         font-weight: 700;
+        font-size: 11px;
       }
 
       @media print {
         body {
-          width: ${RECEIPT_WIDTH_MM}mm;
-        }
-
-        .print-actions {
-          display: none;
+          width: ${paperWidth}mm;
         }
 
         .receipt {
-          padding: 3mm;
+          padding: 4mm 5mm;
         }
       }
     </style>
@@ -192,16 +193,16 @@ const buildReceiptHtml = (sale, settings) => {
         <div class="shop-name">${escapeHtml(shopName)}</div>
         <div class="address">${escapeHtml(address)}</div>
         <div class="address">${escapeHtml(phone)}</div>
-        <div class="address">${escapeHtml(email)}</div>
+        ${email ? `<div class="address">${escapeHtml(email)}</div>` : ''}
       </header>
 
       <div class="divider"></div>
 
       <section>
-        <div class="meta-row"><span>Date</span><span>${escapeHtml(date.toLocaleString())}</span></div>
-        <div class="meta-row"><span>Receipt</span><span>${escapeHtml(receiptId)}</span></div>
-        ${sale.customerName ? `<div class="meta-row"><span>Customer</span><span>${escapeHtml(sale.customerName)}</span></div>` : ''}
-        ${sale.cashierName ? `<div class="meta-row"><span>Cashier</span><span>${escapeHtml(sale.cashierName)}</span></div>` : ''}
+        <div class="meta-row"><span>Date</span> <span>${escapeHtml(date.toLocaleString())}</span></div>
+        <div class="meta-row"><span>Receipt</span> <span>${escapeHtml(receiptId)}</span></div>
+        ${sale.customerName ? `<div class="meta-row"><span>Customer</span> <span>${escapeHtml(sale.customerName)}</span></div>` : ''}
+        ${sale.cashierName ? `<div class="meta-row"><span>Cashier</span> <span>${escapeHtml(sale.cashierName)}</span></div>` : ''}
       </section>
 
       <div class="divider"></div>
@@ -214,13 +215,13 @@ const buildReceiptHtml = (sale, settings) => {
 
       <section>
         ${Number(sale.discount || 0) > 0 ? `
-          <div class="summary-row"><span>Subtotal</span><span>${formatMoney(Number(sale.total || 0) + Number(sale.discount || 0), currency)}</span></div>
-          <div class="summary-row"><span>Discount</span><span>-${formatMoney(sale.discount, currency)}</span></div>
+          <div class="summary-row"><span>Subtotal</span> <span>${formatMoney(Number(sale.total || 0) + Number(sale.discount || 0), currency)}</span></div>
+          <div class="summary-row"><span>Discount</span> <span>-${formatMoney(sale.discount, currency)}</span></div>
         ` : ''}
-        <div class="summary-row total"><span>Total</span><span>${formatMoney(sale.total, currency)}</span></div>
+        <div class="summary-row total"><span>Total</span> <span>${formatMoney(sale.total, currency)}</span></div>
         ${payments}
-        ${change > 0 ? `<div class="summary-row"><span>Change</span><span>${formatMoney(change, currency)}</span></div>` : ''}
-        ${Number(sale.creditAmount || 0) > 0 ? `<div class="summary-row"><span>Amount Owed</span><span>${formatMoney(sale.creditAmount, currency)}</span></div>` : ''}
+        ${change > 0 ? `<div class="summary-row"><span>Change</span> <span>${formatMoney(change, currency)}</span></div>` : ''}
+        ${Number(sale.creditAmount || 0) > 0 ? `<div class="summary-row"><span>Amount Owed</span> <span>${formatMoney(sale.creditAmount, currency)}</span></div>` : ''}
       </section>
 
       <div class="divider"></div>
@@ -229,7 +230,6 @@ const buildReceiptHtml = (sale, settings) => {
         ${escapeHtml(footerText)}
       </footer>
     </main>
-
   </body>
 </html>`
 }
@@ -240,6 +240,9 @@ const getReceiptBody = (receiptHtml) => {
 }
 
 const printInCurrentPage = (receiptHtml) => {
+  const settings = getReceiptSettings()
+  const paperWidth = settings.paperWidth || 80
+  
   let printRoot = document.getElementById('receipt-print-root')
   let printStyle = document.getElementById('receipt-print-style')
 
@@ -259,21 +262,21 @@ const printInCurrentPage = (receiptHtml) => {
   printStyle.textContent = `
     #receipt-print-root { display: none; }
     @media print {
-      @page { size: ${RECEIPT_WIDTH_MM}mm 297mm; margin: 0; }
+      @page { size: ${paperWidth}mm 297mm; margin: 0; }
       body > *:not(#receipt-print-root) { display: none !important; }
         #receipt-print-root {
           display: block !important;
-          width: ${RECEIPT_WIDTH_MM}mm;
+          width: ${paperWidth}mm;
           margin: 0;
           background: #fff;
           color: #000;
-          font-family: Arial, "Helvetica Neue", sans-serif;
-          font-size: 11px;
-          line-height: 1.3;
+          font-family: "Courier New", Courier, monospace, Arial, sans-serif;
+          font-size: 12px;
+          line-height: 1.4;
         }
       #receipt-print-root .receipt {
-        width: ${RECEIPT_WIDTH_MM}mm;
-        padding: 3mm;
+        width: ${paperWidth}mm;
+        padding: 4mm 5mm;
       }
     }
   `

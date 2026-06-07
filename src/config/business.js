@@ -14,6 +14,7 @@ export const defaultReceiptSettings = {
   phone: businessDetails.phone,
   footerText: businessDetails.footerText,
   currency: businessDetails.currency,
+  paperWidth: 80,
 }
 
 export const legacyReceiptDefaults = {

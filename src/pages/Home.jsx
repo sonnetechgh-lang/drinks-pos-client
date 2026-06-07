@@ -852,7 +852,10 @@ export default function Home() {
             </div>
           )}
         >
-          <div className="receipt-paper mx-auto w-[320px] max-w-full overflow-hidden bg-white shadow-lg ring-1 ring-slate-200">
+          <div 
+            className="receipt-paper mx-auto overflow-hidden bg-white shadow-lg ring-1 ring-slate-200"
+            style={{ width: `${(JSON.parse(localStorage.getItem('palace-line-settings') || '{}').paperWidth || 80) * 4}px` }}
+          >
             <iframe
               title="Receipt preview"
               srcDoc={getReceiptHtml(pendingSale || lastSale)}

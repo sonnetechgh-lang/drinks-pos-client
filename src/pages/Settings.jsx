@@ -326,7 +326,7 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-[1fr_180px]">
+          <div className="grid gap-4 md:grid-cols-[1fr_180px_180px]">
             <div>
               <label className="block text-sm font-semibold text-text-primary mb-2">Receipt Footer Message</label>
               <input
@@ -344,6 +344,17 @@ export default function Settings() {
                 value={settings.currency}
                 onChange={(event) => setSettings({ ...settings, currency: event.target.value })}
               />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-text-primary mb-2">Paper Width</label>
+              <select
+                className="w-full rounded-3xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                value={settings.paperWidth || 80}
+                onChange={(event) => setSettings({ ...settings, paperWidth: Number(event.target.value) })}
+              >
+                <option value={80}>80mm (Standard)</option>
+                <option value={58}>58mm (Small)</option>
+              </select>
             </div>
           </div>
 

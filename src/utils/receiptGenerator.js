@@ -83,29 +83,31 @@ const buildReceiptHtml = (sale, settings) => {
     <title>Receipt ${escapeHtml(receiptId)}</title>
     <style>
       @page {
-        size: ${paperWidth}mm 297mm;
-        margin: 0;
+        size: ${paperWidth}mm auto;
+        margin: 0 !important;
       }
 
       * {
         box-sizing: border-box;
       }
 
-      body {
-        margin: 0;
-        padding: 0;
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
         background: #fff;
+        -webkit-print-color-adjust: exact;
+      }
+
+      body {
         color: #000;
         font-family: "Courier New", Courier, monospace, Arial, sans-serif;
         font-size: 12px;
         line-height: 1.4;
-        -webkit-print-color-adjust: exact;
       }
 
       .receipt {
         width: ${paperWidth}mm;
-        min-height: 100%;
-        padding: 5mm 6mm 10mm 6mm; /* Extra bottom padding for cutter */
+        padding: 10mm 6mm 15mm 6mm; /* Top/Bottom padding avoids browser text and printer cut */
         margin: 0 auto;
         overflow: hidden;
       }
@@ -147,12 +149,6 @@ const buildReceiptHtml = (sale, settings) => {
         margin: 2px 0;
       }
 
-      /* Fallback for when flex-space-between is too tight */
-      .meta-row span:first-child::after,
-      .summary-row span:first-child::after {
-        content: ":";
-      }
-
       .item {
         break-inside: avoid;
         padding: 4px 0;
@@ -188,14 +184,11 @@ const buildReceiptHtml = (sale, settings) => {
       }
 
       @media print {
-        body {
+        html, body {
           width: ${paperWidth}mm;
-          margin: 0;
-          padding: 0;
         }
-
         .receipt {
-          padding: 5mm 5mm 15mm 5mm;
+          padding: 8mm 4mm 20mm 4mm;
         }
       }
     </style>
@@ -212,10 +205,10 @@ const buildReceiptHtml = (sale, settings) => {
       <div class="divider"></div>
 
       <section>
-        <div class="meta-row"><span>Date</span> <span>${escapeHtml(date.toLocaleString())}</span></div>
-        <div class="meta-row"><span>Receipt</span> <span>${escapeHtml(receiptId)}</span></div>
-        ${sale.customerName ? `<div class="meta-row"><span>Customer</span> <span>${escapeHtml(sale.customerName)}</span></div>` : ''}
-        ${sale.cashierName ? `<div class="meta-row"><span>Cashier</span> <span>${escapeHtml(sale.cashierName)}</span></div>` : ''}
+        <div class="meta-row"><span>Date:</span> <span>${escapeHtml(date.toLocaleString())}</span></div>
+        <div class="meta-row"><span>Receipt:</span> <span>${escapeHtml(receiptId)}</span></div>
+        ${sale.customerName ? `<div class="meta-row"><span>Customer:</span> <span>${escapeHtml(sale.customerName)}</span></div>` : ''}
+        ${sale.cashierName ? `<div class="meta-row"><span>Cashier:</span> <span>${escapeHtml(sale.cashierName)}</span></div>` : ''}
       </section>
 
       <div class="divider"></div>
@@ -228,13 +221,13 @@ const buildReceiptHtml = (sale, settings) => {
 
       <section>
         ${Number(sale.discount || 0) > 0 ? `
-          <div class="summary-row"><span>Subtotal</span> <span>${formatMoney(Number(sale.total || 0) + Number(sale.discount || 0), currency)}</span></div>
-          <div class="summary-row"><span>Discount</span> <span>-${formatMoney(sale.discount, currency)}</span></div>
+          <div class="summary-row"><span>Subtotal:</span> <span>${formatMoney(Number(sale.total || 0) + Number(sale.discount || 0), currency)}</span></div>
+          <div class="summary-row"><span>Discount:</span> <span>-${formatMoney(sale.discount, currency)}</span></div>
         ` : ''}
-        <div class="summary-row total"><span>Total</span> <span>${formatMoney(sale.total, currency)}</span></div>
+        <div class="summary-row total"><span>Total:</span> <span>${formatMoney(sale.total, currency)}</span></div>
         ${payments}
-        ${change > 0 ? `<div class="summary-row"><span>Change</span> <span>${formatMoney(change, currency)}</span></div>` : ''}
-        ${Number(sale.creditAmount || 0) > 0 ? `<div class="summary-row"><span>Amount Owed</span> <span>${formatMoney(sale.creditAmount, currency)}</span></div>` : ''}
+        ${change > 0 ? `<div class="summary-row"><span>Change:</span> <span>${formatMoney(change, currency)}</span></div>` : ''}
+        ${Number(sale.creditAmount || 0) > 0 ? `<div class="summary-row"><span>Amount Owed:</span> <span>${formatMoney(sale.creditAmount, currency)}</span></div>` : ''}
       </section>
 
       <div class="divider"></div>
@@ -279,13 +272,13 @@ const printInCurrentPage = (receiptHtml) => {
   printStyle.textContent = `
     #receipt-print-root { display: none; }
     @media print {
-      @page { size: ${paperWidth}mm 297mm; margin: 0; }
+      @page { size: ${paperWidth}mm auto; margin: 0 !important; }
       body > *:not(#receipt-print-root) { display: none !important; }
         #receipt-print-root {
           display: block !important;
           width: ${paperWidth}mm;
-          margin: 0;
-          padding: 0;
+          margin: 0 !important;
+          padding: 0 !important;
           background: #fff;
           color: #000;
           font-family: "Courier New", Courier, monospace, Arial, sans-serif;
@@ -294,7 +287,7 @@ const printInCurrentPage = (receiptHtml) => {
         }
       #receipt-print-root .receipt {
         width: ${paperWidth}mm;
-        padding: 5mm 5mm 15mm 5mm;
+        padding: 8mm 4mm 20mm 4mm;
       }
     }
   `

@@ -33,7 +33,8 @@ export const addCustomerToQueue = async (customer) => {
     active: customer.active !== undefined ? customer.active : true,
     createdAt: new Date().toISOString(),
   }
-  record.id = customer.id || record.clientId
+  // Local ID in Dexie is the clientId (UUID string)
+  record.id = record.clientId
 
   await db.customers.put(record)
 
@@ -96,32 +97,58 @@ const syncLocalCustomers = async () => {
   const localCustomers = await db.customers.where('synced').equals(0).toArray()
   if (localCustomers.length === 0) return new Map()
 
-  const response = await client.post('/v1/customers/sync', { customers: localCustomers })
-  const syncedCustomers = response.data.data || []
-  const idMap = new Map()
+  try {
+    const response = await client.post('/v1/customers/sync', { customers: localCustomers })
+    const syncedCustomers = response.data.data || []
+    const idMap = new Map()
 
-  for (const customer of syncedCustomers) {
-    idMap.set(customer.clientId, customer.id)
-    const local = localCustomers.find((item) => item.clientId === customer.clientId)
-    if (local) {
-      await db.customers.delete(local.id)
-      await db.customers.put({ ...local, id: customer.id, synced: 1 })
+    for (const customer of syncedCustomers) {
+      idMap.set(customer.clientId, customer.id)
+      const local = localCustomers.find((item) => item.clientId === customer.clientId)
+      if (local) {
+        // Delete the record with UUID ID and replace with integer ID
+        await db.customers.delete(local.id)
+        await db.customers.put({ ...local, id: customer.id, synced: 1 })
+      }
     }
-  }
 
-  return idMap
+    return idMap
+  } catch (err) {
+    console.error('Failed to sync customers:', err.message)
+    return new Map()
+  }
 }
 
 const resolveCustomerIds = async (records, idMap) => {
   return Promise.all(records.map(async (record) => {
-    if (record.customerId) return record
-    if (!record.customerClientId) return record
+    // If it has a customerId, check if it's a UUID (local) or Integer (server)
+    // UUIDs have dashes, server IDs in this app are integers or strings without dashes
+    const isLocalId = (id) => typeof id === 'string' && id.includes('-')
+    
+    // If it's already a server ID, keep it
+    if (record.customerId && !isLocalId(record.customerId)) return record
 
-    const mappedId = idMap.get(record.customerClientId)
-    if (mappedId) return { ...record, customerId: mappedId }
+    // Try to resolve via client ID map (from the current sync session)
+    if (record.customerClientId) {
+      const mappedId = idMap.get(record.customerClientId)
+      if (mappedId) return { ...record, customerId: mappedId }
+    }
 
-    const localCustomer = await db.customers.where('clientId').equals(record.customerClientId).first()
-    return localCustomer?.id ? { ...record, customerId: localCustomer.id } : record
+    // Try to resolve by looking up the local customer in Dexie
+    if (record.customerClientId) {
+      const localCustomer = await db.customers.where('clientId').equals(record.customerClientId).first()
+      // Only use the ID if the customer is synced (has a server ID)
+      if (localCustomer?.id && localCustomer.synced === 1) {
+        return { ...record, customerId: localCustomer.id }
+      }
+    }
+
+    // If it was truthy but a local ID, clear it so we don't send UUID to server
+    if (isLocalId(record.customerId)) {
+      return { ...record, customerId: undefined }
+    }
+
+    return record
   }))
 }
 
@@ -139,14 +166,17 @@ const runFlushQueue = async () => {
       unsynced.filter((record) => record.type === 'CUSTOMER_PAYMENT'),
       customerIdMap
     )
-    if (payments.length > 0) {
+    // Filter out payments that don't have a server customerId yet
+    const readyPayments = payments.filter((p) => p.customerId)
+    
+    if (readyPayments.length > 0) {
       try {
-        const response = await client.post('/v1/customer-payments/sync', { payments })
+        const response = await client.post('/v1/customer-payments/sync', { payments: readyPayments })
         if (response.data.success) {
-          await db.syncQueue.where('id').anyOf(payments.map((p) => p.id)).delete()
+          await db.syncQueue.where('id').anyOf(readyPayments.map((p) => p.id)).delete()
         }
       } catch (err) {
-        await db.syncQueue.where('id').anyOf(payments.map((p) => p.id)).modify((p) => {
+        await db.syncQueue.where('id').anyOf(readyPayments.map((p) => p.id)).modify((p) => {
           p.attempts = (p.attempts || 0) + 1
           p.lastError = err.response?.data?.message || err.message
         })
@@ -158,11 +188,20 @@ const runFlushQueue = async () => {
       unsynced.filter((record) => !record.type || record.type === 'SALE'),
       customerIdMap
     )
-    if (sales.length > 0) {
+    
+    // Filter out sales that need a customer but don't have one yet
+    const readySales = sales.filter((s) => {
+      const isCredit = s.paymentStatus === 'CREDIT' || s.paymentStatus === 'PARTIAL'
+      const usesAdvance = s.paymentLines?.some(l => l.method === 'ADVANCE_BALANCE')
+      if ((isCredit || usesAdvance) && !s.customerId) return false
+      return true
+    })
+
+    if (readySales.length > 0) {
       try {
-        const response = await client.post('/v1/sales/sync', { sales })
+        const response = await client.post('/v1/sales/sync', { sales: readySales })
         if (response.data.success) {
-          await db.syncQueue.where('id').anyOf(sales.map((s) => s.id)).delete()
+          await db.syncQueue.where('id').anyOf(readySales.map((s) => s.id)).delete()
           
           // Refresh products from server to update Dexie stock levels
           try {
@@ -172,7 +211,7 @@ const runFlushQueue = async () => {
           }
         }
       } catch (err) {
-        await db.syncQueue.where('id').anyOf(sales.map((s) => s.id)).modify((s) => {
+        await db.syncQueue.where('id').anyOf(readySales.map((s) => s.id)).modify((s) => {
           s.attempts = (s.attempts || 0) + 1
           s.lastError = err.response?.data?.message || err.message
         })

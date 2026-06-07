@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Banknote, Ban, Pencil, Plus, Search, UserCheck } from 'lucide-react'
 import { getCustomers, createCustomer, updateCustomer } from '../api/customers'
-import { addCustomerPaymentToQueue } from '../db/syncQueue'
+import { addCustomerPaymentToQueue, addCustomerToQueue } from '../db/syncQueue'
 import { db } from '../db/dexie'
 import { useAuth } from '../hooks/useAuth'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
@@ -63,24 +63,33 @@ export default function CustomersPage() {
     event.preventDefault()
     if (!name.trim()) return
 
+    const online = typeof navigator !== 'undefined' ? navigator.onLine : true
     setSaving(true)
     setFormError('')
     setStatusMessage(null)
     try {
-      const newCustomer = await createCustomer({
+      const payload = {
         name: name.trim(),
-        phone: phone.trim(),
-        notes: notes.trim(),
+        phone: phone.trim() || undefined,
+        notes: notes.trim() || undefined,
         creditLimit: Number(creditLimit) || 0,
-      })
-      await db.customers.put({ ...newCustomer, synced: 1 })
+      }
+
+      const newCustomer = online ? await createCustomer(payload) : await addCustomerToQueue(payload)
+      await db.customers.put({ ...newCustomer, synced: online ? 1 : 0 })
+      
       setCustomers((prev) => [newCustomer, ...prev])
       setName('')
       setPhone('')
       setNotes('')
       setCreditLimit('')
       setShowCreateModal(false)
-      setStatusMessage({ type: 'success', text: `Customer ${newCustomer.name} added successfully.` })
+      setStatusMessage({ 
+        type: online ? 'success' : 'warning', 
+        text: online 
+          ? `Customer ${newCustomer.name} added successfully.` 
+          : `Customer ${newCustomer.name} saved locally (offline).` 
+      })
     } catch (err) {
       const message = err.response?.data?.message || err.message || 'Failed to create customer.'
       setFormError(message)

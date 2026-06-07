@@ -198,7 +198,7 @@ export default function Home() {
   const cartTotal = useMemo(() => Math.max(0, cartSubtotal - parseAmount(discount)), [cartSubtotal, discount])
 
   const selectedCustomer = useMemo(
-    () => customers.find((customer) => customer.id === selectedCustomerId),
+    () => customers.find((customer) => customer.id === selectedCustomerId || customer.clientId === selectedCustomerId),
     [customers, selectedCustomerId]
   )
 

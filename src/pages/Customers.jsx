@@ -13,6 +13,7 @@ import { formatCurrency } from '../utils/currency'
 
 export default function CustomersPage() {
   const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const [customers, setCustomers] = useState([])
   const [search, setSearch] = useState('')
   const [name, setName] = useState('')
@@ -72,7 +73,7 @@ export default function CustomersPage() {
         name: name.trim(),
         phone: phone.trim() || undefined,
         notes: notes.trim() || undefined,
-        creditLimit: Number(creditLimit) || 0,
+        creditLimit: isAdmin ? (Number(creditLimit) || 0) : 0,
       }
 
       const newCustomer = online ? await createCustomer(payload) : await addCustomerToQueue(payload)
@@ -145,11 +146,15 @@ export default function CustomersPage() {
     setSavingEdit(true)
     setStatusMessage(null)
     try {
-      const updated = await updateCustomer(editingCustomer.id, {
+      const payload = {
         name: editName.trim(),
         phone: editPhone.trim(),
-        creditLimit: Number(editCreditLimit) || 0,
-      })
+      }
+      if (isAdmin) {
+        payload.creditLimit = Number(editCreditLimit) || 0
+      }
+
+      const updated = await updateCustomer(editingCustomer.id, payload)
       setCustomers((prev) => prev.map((customer) => (customer.id === updated.id ? { ...customer, ...updated } : customer)))
       setEditingCustomer(null)
       setStatusMessage({ type: 'success', text: `Customer ${updated.name} updated successfully.` })
@@ -226,12 +231,12 @@ export default function CustomersPage() {
               <table className="min-w-full table-fixed text-left">
                 <thead className="bg-slate-50 text-xs uppercase text-text-secondary">
                   <tr>
-                    <th className="w-[28%] px-5 py-3">Customer</th>
-                    <th className="w-[20%] px-5 py-3">Contact</th>
-                    <th className="w-[15%] px-5 py-3 text-right">Credit Limit</th>
-                    <th className="w-[15%] px-5 py-3 text-right">Balance</th>
-                    <th className="w-[10%] px-5 py-3">Status</th>
-                    <th className="w-[12%] px-5 py-3 text-right">Actions</th>
+                    <th className="w-[24%] px-5 py-3">Customer</th>
+                    <th className="w-[18%] px-5 py-3">Contact</th>
+                    <th className="w-[13%] px-5 py-3 text-right">Credit Limit</th>
+                    <th className="w-[15%] px-5 py-3 text-right">Amt Owed</th>
+                    <th className="w-[15%] px-5 py-3 text-right">Wallet</th>
+                    <th className="w-[15%] px-5 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y border-t border-border">
@@ -244,51 +249,57 @@ export default function CustomersPage() {
                       <td colSpan="6" className="px-6 py-6 text-center text-text-secondary">No customers recorded yet.</td>
                     </tr>
                   ) : (
-                    customers.map((customer) => (
-                      <tr key={customer.id} className="transition-colors hover:bg-slate-50">
-                        <td className="px-5 py-4">
-                          <div className="truncate font-semibold text-text-primary">{customer.name}</div>
-                          <div className="mt-1 truncate text-xs text-text-secondary">{customer.clientId ? customer.clientId : `CUST-${customer.id.slice(0, 8).toUpperCase()}`}</div>
-                        </td>
-                        <td className="px-5 py-4 text-sm text-text-secondary">
-                          <div className="truncate">{customer.phone || '-'}</div>
-                          {customer.notes && <div className="mt-1 truncate text-xs text-text-secondary">{customer.notes}</div>}
-                        </td>
-                        <td className="px-5 py-4 text-right font-semibold text-text-primary">{formatCurrency(customer.creditLimit)}</td>
-                        <td className={`px-5 py-4 text-right font-semibold ${Number(customer.balance || 0) >= 0 ? 'text-success' : 'text-danger'}`}>{formatCurrency(customer.balance)}</td>
-                        <td className="px-5 py-4">
-                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${customer.active ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`}>
-                            {customer.active ? 'Active' : 'Blocked'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleEditClick(customer)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white text-text-secondary transition hover:border-brand-blue hover:text-brand-blue"
-                            title="Edit customer"
-                            aria-label={`Edit ${customer.name}`}
-                          >
-                            <Pencil size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(customer)}
-                            className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition ${
-                              customer.active
-                                ? 'border-danger/20 bg-danger-light/30 text-danger hover:bg-danger-light'
-                                : 'border-success/20 bg-success-light/40 text-success hover:bg-success-light'
-                            }`}
-                            title={customer.active ? 'Block customer' : 'Unblock customer'}
-                            aria-label={`${customer.active ? 'Block' : 'Unblock'} ${customer.name}`}
-                          >
-                            {customer.active ? <Ban size={15} /> : <UserCheck size={15} />}
-                          </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    customers.map((customer) => {
+                      const balance = Number(customer.balance || 0)
+                      const amtOwed = balance < 0 ? Math.abs(balance) : 0
+                      const wallet = balance > 0 ? balance : 0
+                      
+                      return (
+                        <tr key={customer.id} className="transition-colors hover:bg-slate-50">
+                          <td className="px-5 py-4">
+                            <div className="truncate font-semibold text-text-primary">{customer.name}</div>
+                            <div className="mt-1 truncate text-xs text-text-secondary">{customer.clientId ? customer.clientId : `CUST-${customer.id.slice(0, 8).toUpperCase()}`}</div>
+                          </td>
+                          <td className="px-5 py-4 text-sm text-text-secondary">
+                            <div className="truncate">{customer.phone || '-'}</div>
+                            {customer.notes && <div className="mt-1 truncate text-xs text-text-secondary">{customer.notes}</div>}
+                          </td>
+                          <td className="px-5 py-4 text-right font-semibold text-text-primary">{formatCurrency(customer.creditLimit)}</td>
+                          <td className={`px-5 py-4 text-right font-black ${amtOwed > 0 ? 'text-danger' : 'text-slate-300'}`}>
+                            {amtOwed > 0 ? formatCurrency(amtOwed) : formatCurrency(0)}
+                          </td>
+                          <td className={`px-5 py-4 text-right font-black ${wallet > 0 ? 'text-success' : 'text-slate-300'}`}>
+                            {wallet > 0 ? formatCurrency(wallet) : formatCurrency(0)}
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditClick(customer)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white text-text-secondary transition hover:border-brand-blue hover:text-brand-blue"
+                              title="Edit customer"
+                              aria-label={`Edit ${customer.name}`}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(customer)}
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+                                customer.active
+                                  ? 'border-danger/20 bg-danger-light/30 text-danger hover:bg-danger-light'
+                                  : 'border-success/20 bg-success-light/40 text-success hover:bg-success-light'
+                              }`}
+                              title={customer.active ? 'Block customer' : 'Unblock customer'}
+                              aria-label={`${customer.active ? 'Block' : 'Unblock'} ${customer.name}`}
+                            >
+                              {customer.active ? <Ban size={15} /> : <UserCheck size={15} />}
+                            </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
@@ -300,62 +311,66 @@ export default function CustomersPage() {
               ) : customers.length === 0 ? (
                 <div className="rounded-3xl border border-border bg-gray-50 p-6 text-center text-text-secondary">No customers recorded yet.</div>
               ) : (
-                customers.map((customer) => (
-                  <div key={customer.id} className="rounded-3xl border border-border bg-white p-4 shadow-sm">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold text-text-primary">{customer.name}</p>
-                        <p className="mt-1 text-xs text-text-secondary">{customer.clientId ? customer.clientId : `CUST-${customer.id.slice(0, 8).toUpperCase()}`}</p>
-                      </div>
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${customer.active ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`}>
-                        {customer.active ? 'Active' : 'Blocked'}
-                      </span>
-                    </div>
-                    <div className="mt-4 grid gap-3 text-sm text-text-secondary">
-                      <div>
-                        <p className="font-semibold text-text-primary">Contact</p>
-                        <p>{customer.phone || '-'}</p>
-                      </div>
-                      {customer.notes && (
-                        <div>
-                          <p className="font-semibold text-text-primary">Notes</p>
-                          <p>{customer.notes}</p>
+                customers.map((customer) => {
+                  const balance = Number(customer.balance || 0)
+                  const amtOwed = balance < 0 ? Math.abs(balance) : 0
+                  const wallet = balance > 0 ? balance : 0
+
+                  return (
+                    <div key={customer.id} className="rounded-3xl border border-border bg-white p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-semibold text-text-primary">{customer.name}</p>
+                          <p className="mt-1 text-xs text-text-secondary">{customer.clientId ? customer.clientId : `CUST-${customer.id.slice(0, 8).toUpperCase()}`}</p>
                         </div>
-                      )}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl bg-gray-50 p-3">
-                          <p className="text-xs uppercase tracking-[0.18em] text-text-secondary">Credit Limit</p>
-                          <p className="mt-2 font-semibold text-text-primary">{formatCurrency(customer.creditLimit)}</p>
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${customer.active ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`}>
+                          {customer.active ? 'Active' : 'Blocked'}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid gap-3 text-sm text-text-secondary">
+                        <div className="flex justify-between items-center border-b border-border pb-2">
+                          <p className="font-semibold text-text-primary">Phone</p>
+                          <p>{customer.phone || '-'}</p>
                         </div>
-                        <div className="rounded-2xl bg-gray-50 p-3">
-                          <p className="text-xs uppercase tracking-[0.18em] text-text-secondary">Balance</p>
-                          <p className="mt-2 font-semibold text-text-primary">{formatCurrency(customer.balance)}</p>
+                        <div className="grid grid-cols-2 gap-3 mt-1">
+                          <div className="rounded-2xl bg-gray-50 p-3">
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-text-secondary">Amt Owed</p>
+                            <p className={`mt-2 font-black ${amtOwed > 0 ? 'text-danger' : 'text-slate-400'}`}>{formatCurrency(amtOwed)}</p>
+                          </div>
+                          <div className="rounded-2xl bg-gray-50 p-3">
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-text-secondary">Wallet</p>
+                            <p className={`mt-2 font-black ${wallet > 0 ? 'text-success' : 'text-slate-400'}`}>{formatCurrency(wallet)}</p>
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-border p-3 flex justify-between items-center bg-slate-50">
+                           <p className="text-[10px] uppercase tracking-[0.18em] text-text-secondary">Credit Limit</p>
+                           <p className="font-bold text-text-primary">{formatCurrency(customer.creditLimit)}</p>
                         </div>
                       </div>
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditClick(customer)}
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
+                        >
+                          <Pencil size={14} /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(customer)}
+                          className={`inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold transition ${
+                            customer.active
+                              ? 'bg-danger-light text-danger hover:bg-danger-light/80'
+                              : 'bg-success-light text-success hover:bg-success-light/80'
+                          }`}
+                        >
+                          {customer.active ? <Ban size={14} /> : <UserCheck size={14} />}
+                          {customer.active ? 'Block' : 'Unblock'}
+                        </button>
+                      </div>
                     </div>
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEditClick(customer)}
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-gray-50"
-                      >
-                        <Pencil size={14} /> Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleActive(customer)}
-                        className={`inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold transition ${
-                          customer.active
-                            ? 'bg-danger-light text-danger hover:bg-danger-light/80'
-                            : 'bg-success-light text-success hover:bg-success-light/80'
-                        }`}
-                      >
-                        {customer.active ? <Ban size={14} /> : <UserCheck size={14} />}
-                        {customer.active ? 'Block' : 'Unblock'}
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>
@@ -389,17 +404,19 @@ export default function CustomersPage() {
                   className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-text-primary mb-2">Credit limit</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editCreditLimit}
-                  onChange={(e) => setEditCreditLimit(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                />
-              </div>
+              {isAdmin && (
+                <div>
+                  <label className="block text-sm font-semibold text-text-primary mb-2">Credit limit</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editCreditLimit}
+                    onChange={(e) => setEditCreditLimit(e.target.value)}
+                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  />
+                </div>
+              )}
               <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
                 <Button type="button" variant="secondary" onClick={() => setEditingCustomer(null)} disabled={savingEdit}>
                   Cancel
@@ -446,18 +463,20 @@ export default function CustomersPage() {
                   placeholder="Optional phone"
                 />
               </div>
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-text-primary">Credit limit</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={creditLimit}
-                  onChange={(e) => setCreditLimit(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  placeholder="0.00"
-                />
-              </div>
+              {isAdmin && (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-text-primary">Credit limit</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={creditLimit}
+                    onChange={(e) => setCreditLimit(e.target.value)}
+                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                    placeholder="0.00"
+                  />
+                </div>
+              )}
               <div>
                 <label className="mb-2 block text-sm font-semibold text-text-primary">Notes</label>
                 <input

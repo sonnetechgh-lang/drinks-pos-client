@@ -708,11 +708,19 @@ export default function Home() {
                           <p className="mt-1">{selectedCustomer.name}</p>
                           <p className="text-xs">{selectedCustomer.phone}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-bold uppercase tracking-wider">Balance</p>
-                          <p className={`text-base font-black ${selectedCustomer.currentBalance >= 0 ? 'text-success' : 'text-danger'}`}>
-                            {formatCurrency(selectedCustomer.currentBalance)}
-                          </p>
+                        <div className="text-right space-y-2">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider">Debt (Owed)</p>
+                            <p className={`text-base font-black ${Number(selectedCustomer.balance || 0) < 0 ? 'text-danger' : 'text-slate-300'}`}>
+                              {formatCurrency(Number(selectedCustomer.balance || 0) < 0 ? Math.abs(selectedCustomer.balance) : 0)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider">Wallet (Advance)</p>
+                            <p className={`text-base font-black ${Number(selectedCustomer.balance || 0) > 0 ? 'text-success' : 'text-slate-300'}`}>
+                              {formatCurrency(Number(selectedCustomer.balance || 0) > 0 ? selectedCustomer.balance : 0)}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>

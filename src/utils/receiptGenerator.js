@@ -33,6 +33,187 @@ const getReceiptSettings = () => {
   }
 }
 
+const getReceiptCss = (paperWidth, { includePrintBlock = true } = {}) => {
+  const sidePadding = paperWidth <= 58 ? 3 : 4
+  const topPadding = 6
+  const bottomPadding = 18
+
+  return `
+      @page {
+        size: ${paperWidth}mm auto;
+        margin: 0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: ${paperWidth}mm;
+        min-width: ${paperWidth}mm;
+        max-width: ${paperWidth}mm;
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #000;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      body {
+        font-family: "Courier New", Courier, monospace;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .receipt {
+        display: block;
+        width: ${paperWidth}mm;
+        min-width: ${paperWidth}mm;
+        max-width: ${paperWidth}mm;
+        padding: ${topPadding}mm ${sidePadding}mm ${bottomPadding}mm ${sidePadding}mm;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .shop-name {
+        font-size: ${paperWidth <= 58 ? 15 : 18}px;
+        font-weight: 900;
+        line-height: 1.18;
+        text-transform: uppercase;
+        margin-bottom: 2mm;
+        overflow-wrap: anywhere;
+      }
+
+      .address,
+      .muted {
+        color: #000;
+        font-size: ${paperWidth <= 58 ? 10 : 11}px;
+        font-weight: 500;
+        overflow-wrap: anywhere;
+      }
+
+      .divider {
+        display: block;
+        width: 100%;
+        margin: 7px 0;
+        overflow: hidden;
+        white-space: nowrap;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .divider::before {
+        content: "------------------------------------------------------------";
+      }
+
+      .meta-row,
+      .summary-row,
+      .item-line {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: 8px;
+        align-items: start;
+        margin: 2px 0;
+      }
+
+      .meta-row > :first-child,
+      .summary-row > :first-child,
+      .item-line > :first-child {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .meta-row > :last-child,
+      .summary-row > :last-child,
+      .item-line > :last-child {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .item {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        padding: 4px 0;
+      }
+
+      .item-name {
+        font-weight: 700;
+        overflow-wrap: anywhere;
+        text-transform: uppercase;
+      }
+
+      .total {
+        font-size: ${paperWidth <= 58 ? 14 : 16}px;
+        font-weight: 900;
+        padding-top: 4px;
+        margin-top: 4px;
+      }
+
+      .total::before {
+        content: "";
+        grid-column: 1 / -1;
+        border-top: 1px solid #000;
+        margin-bottom: 4px;
+      }
+
+      .footer {
+        margin-top: 15px;
+        font-weight: 700;
+        font-size: 11px;
+        overflow-wrap: anywhere;
+      }
+
+      .developer-credit {
+        margin-top: 8px;
+        font-size: 9px;
+        font-weight: 400;
+        color: #000;
+        padding-top: 6px;
+        overflow-wrap: anywhere;
+      }
+
+      .developer-credit::before {
+        content: "------------------------------";
+        display: block;
+        margin-bottom: 6px;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      ${includePrintBlock ? `@media print {
+        html,
+        body,
+        .receipt {
+          width: ${paperWidth}mm !important;
+          min-width: ${paperWidth}mm !important;
+          max-width: ${paperWidth}mm !important;
+        }
+
+        html,
+        body {
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        .receipt {
+          margin: 0 !important;
+          padding: ${topPadding}mm ${sidePadding}mm ${bottomPadding}mm ${sidePadding}mm !important;
+        }
+      }` : ''}
+    `
+}
+
 const buildReceiptHtml = (sale, settings) => {
   const shopName = settings.shopName || defaultReceiptSettings.shopName
   const address = settings.address === legacyReceiptDefaults.receiptAddress
@@ -82,115 +263,7 @@ const buildReceiptHtml = (sale, settings) => {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Receipt ${escapeHtml(receiptId)}</title>
     <style>
-      @page {
-        size: ${paperWidth}mm auto;
-        margin: 0 !important;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #fff;
-        -webkit-print-color-adjust: exact;
-      }
-
-      body {
-        color: #000;
-        font-family: "Courier New", Courier, monospace, Arial, sans-serif;
-        font-size: 12px;
-        line-height: 1.4;
-      }
-
-      .receipt {
-        width: ${paperWidth}mm;
-        padding: 10mm 6mm 15mm 6mm; /* Top/Bottom padding avoids browser text and printer cut */
-        margin: 0 auto;
-        overflow: hidden;
-      }
-
-      .center {
-        text-align: center;
-      }
-
-      .right {
-        text-align: right;
-      }
-
-      .shop-name {
-        font-size: 18px;
-        font-weight: 900;
-        line-height: 1.2;
-        text-transform: uppercase;
-        margin-bottom: 2mm;
-      }
-
-      .address,
-      .muted {
-        color: #000;
-        font-size: 11px;
-        font-weight: 500;
-      }
-
-      .divider {
-        border-top: 1px dashed #000;
-        margin: 8px 0;
-      }
-
-      .meta-row,
-      .summary-row,
-      .item-line {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        margin: 2px 0;
-      }
-
-      .item {
-        break-inside: avoid;
-        padding: 4px 0;
-      }
-
-      .item-name {
-        font-weight: 700;
-        overflow-wrap: anywhere;
-        text-transform: uppercase;
-      }
-
-      .total {
-        font-size: 16px;
-        font-weight: 900;
-        border-top: 1px solid #000;
-        padding-top: 4px;
-        margin-top: 4px;
-      }
-
-      .footer {
-        margin-top: 15px;
-        font-weight: 700;
-        font-size: 11px;
-      }
-
-      .developer-credit {
-        margin-top: 8px;
-        font-size: 9px;
-        font-weight: 400;
-        color: #333;
-        border-top: 1px solid #eee;
-        padding-top: 6px;
-      }
-
-      @media print {
-        html, body {
-          width: ${paperWidth}mm;
-        }
-        .receipt {
-          padding: 8mm 4mm 20mm 4mm;
-        }
-      }
+      ${getReceiptCss(paperWidth)}
     </style>
   </head>
   <body>
@@ -272,23 +345,9 @@ const printInCurrentPage = (receiptHtml) => {
   printStyle.textContent = `
     #receipt-print-root { display: none; }
     @media print {
-      @page { size: ${paperWidth}mm auto; margin: 0 !important; }
       body > *:not(#receipt-print-root) { display: none !important; }
-        #receipt-print-root {
-          display: block !important;
-          width: ${paperWidth}mm;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: #fff;
-          color: #000;
-          font-family: "Courier New", Courier, monospace, Arial, sans-serif;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-      #receipt-print-root .receipt {
-        width: ${paperWidth}mm;
-        padding: 8mm 4mm 20mm 4mm;
-      }
+      ${getReceiptCss(paperWidth, { includePrintBlock: false })}
+      #receipt-print-root { display: block !important; }
     }
   `
 
@@ -299,17 +358,23 @@ const printInCurrentPage = (receiptHtml) => {
 
 const printInNewWindow = (receiptHtml) => {
   try {
-    const printWindow = window.open('', '_blank', 'width=350,height=600')
+    const printWindow = window.open('', '_blank', 'width=380,height=650')
     if (!printWindow) {
       throw new Error('Popup blocked')
     }
     printWindow.document.write(receiptHtml)
     printWindow.document.close()
     printWindow.focus()
+
+    const closeAfterPrint = () => {
+      printWindow.removeEventListener?.('afterprint', closeAfterPrint)
+      printWindow.close()
+    }
+
+    printWindow.addEventListener?.('afterprint', closeAfterPrint)
     setTimeout(() => {
       printWindow.print()
-      printWindow.close()
-    }, 250)
+    }, 500)
   } catch (err) {
     console.warn('Popup blocked or failed, using current-page printing fallback:', err)
     printInCurrentPage(receiptHtml)

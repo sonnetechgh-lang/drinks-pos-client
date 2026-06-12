@@ -471,6 +471,57 @@ export default function Settings() {
 
             {accountMessage && <p className="text-sm font-semibold text-text-secondary">{accountMessage}</p>}
           </section>
+
+          {isAdmin && (
+            <section className="card p-8 space-y-6 border-danger-light bg-danger-light/5">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-danger">Danger Zone</p>
+                <h2 className="mt-2 text-xl font-black text-text-primary">Device Cleanup</h2>
+              </div>
+
+              <div className="rounded-2xl border border-danger-light bg-white p-5">
+                <p className="text-sm font-semibold text-text-primary">Reset Device Data</p>
+                <p className="mt-1 text-xs text-text-secondary leading-relaxed">
+                  Permanently deletes all local products, customers, and pending sync items from this device.
+                  You will be logged out and all browser storage for this app will be cleared.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction({
+                    title: 'Wipe Device Data?',
+                    message: 'This will delete all offline data and log you out. This action cannot be undone.',
+                    confirmLabel: 'Wipe Everything',
+                    run: async () => {
+                      // Delete Dexie DB
+                      await db.delete()
+                      // Clear LocalStorage
+                      localStorage.clear()
+                      // Unregister Service Workers
+                      if ('serviceWorker' in navigator) {
+                        const registrations = await navigator.serviceWorker.getRegistrations()
+                        for (const registration of registrations) {
+                          await registration.unregister()
+                        }
+                      }
+                      // Clear Caches
+                      if ('caches' in window) {
+                        const cacheNames = await caches.keys()
+                        for (const name of cacheNames) {
+                          await caches.delete(name)
+                        }
+                      }
+                      // Reload to login
+                      window.location.href = '/'
+                    },
+                  })}
+                  className="mt-5 w-full rounded-2xl bg-danger px-4 py-3 text-sm font-bold text-white hover:bg-danger-dark transition"
+                >
+                  Wipe Device Data
+                </button>
+              </div>
+            </section>
+          )}
         </div>
       </section>
 

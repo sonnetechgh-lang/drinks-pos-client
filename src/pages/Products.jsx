@@ -908,6 +908,7 @@ export default function ProductsPage() {
                   type="number"
                   min="1"
                   required
+                  data-autofocus="true"
                   value={stockData.quantity}
                   onChange={(e) => setStockData({ ...stockData, quantity: Number(e.target.value) })}
                   className="w-full rounded-2xl border border-border bg-white px-4 py-4 text-sm font-bold text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light transition-all"
@@ -962,6 +963,7 @@ export default function ProductsPage() {
             <label className="mb-2 block text-sm font-semibold text-text-primary">Category name</label>
             <input
               value={newCategoryData.name}
+              data-autofocus="true"
               onChange={(event) => setNewCategoryData({ ...newCategoryData, name: event.target.value })}
               className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
               placeholder="Alcoholic"

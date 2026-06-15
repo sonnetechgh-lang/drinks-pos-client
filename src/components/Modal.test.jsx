@@ -88,4 +88,35 @@ describe('Modal', () => {
 
     expect(document.activeElement).toBe(opener)
   })
+
+  it('does not yank focus when unrelated props change', async () => {
+    function Harness() {
+      const [count, setCount] = React.useState(0)
+      return (
+        <Modal open onClose={() => {}} title={`Test modal ${count}`}>
+          <input id="test-input" />
+          <button type="button" onClick={() => setCount(c => c + 1)}>Update Prop</button>
+        </Modal>
+      )
+    }
+
+    await render(<Harness />)
+    
+    const input = document.getElementById('test-input')
+    const updateButton = document.querySelector('button[type="button"]')
+    
+    // Focus the input
+    await React.act(async () => {
+      input.focus()
+    })
+    expect(document.activeElement).toBe(input)
+
+    // Trigger a re-render of the parent, which passes a new title and onClose
+    await React.act(async () => {
+      updateButton.click()
+    })
+
+    // Focus should still be on the input, not yanked back to the close button
+    expect(document.activeElement).toBe(input)
+  })
 })

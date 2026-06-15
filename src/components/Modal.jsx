@@ -60,13 +60,6 @@ export default function Modal({
 
     document.addEventListener('keydown', handleKeyDown)
 
-    window.requestAnimationFrame(() => {
-      const firstFocusable = panelRef.current?.querySelector(
-        'button:not([disabled]), a[href], textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-      ;(firstFocusable || panelRef.current)?.focus()
-    })
-
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       if (previousFocusRef.current instanceof HTMLElement) {
@@ -74,6 +67,18 @@ export default function Modal({
       }
     }
   }, [closeDisabled, onClose, open])
+
+  // Separate effect for initial focus to avoid yanking focus on prop updates
+  React.useEffect(() => {
+    if (open) {
+      window.requestAnimationFrame(() => {
+        const firstFocusable = panelRef.current?.querySelector(
+          'button:not([disabled]), a[href], textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+        ;(firstFocusable || panelRef.current)?.focus()
+      })
+    }
+  }, [open])
 
   if (!open) return null
 

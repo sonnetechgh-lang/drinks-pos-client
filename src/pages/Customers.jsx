@@ -378,190 +378,186 @@ export default function CustomersPage() {
 
       </div>
 
-      {editingCustomer && (
-        <Modal
-          open={Boolean(editingCustomer)}
-          onClose={() => setEditingCustomer(null)}
-          eyebrow="Customers"
-          title="Edit Customer"
-          size="md"
-          closeDisabled={savingEdit}
-        >
-          <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-text-primary mb-2">Name</label>
-                <input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-text-primary mb-2">Phone</label>
-                <input
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                />
-              </div>
-              {isAdmin && (
-                <div>
-                  <label className="block text-sm font-semibold text-text-primary mb-2">Credit limit</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editCreditLimit}
-                    onChange={(e) => setEditCreditLimit(e.target.value)}
-                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  />
-                </div>
-              )}
-              <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
-                <Button type="button" variant="secondary" onClick={() => setEditingCustomer(null)} disabled={savingEdit}>
-                  Cancel
-                </Button>
-                <Button type="button" onClick={handleSaveEdit} loading={savingEdit}>
-                  Save Changes
-                </Button>
-              </div>
+      <Modal
+        open={Boolean(editingCustomer)}
+        onClose={() => setEditingCustomer(null)}
+        eyebrow="Customers"
+        title="Edit Customer"
+        size="md"
+        closeDisabled={savingEdit}
+      >
+        <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-text-primary mb-2">Name</label>
+              <input
+                data-autofocus="true"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+              />
             </div>
-        </Modal>
-      )}
-
-      {showCreateModal && (
-        <Modal
-          open={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          eyebrow="Customers"
-          title="Add New Customer"
-          size="lg"
-          closeDisabled={saving}
-        >
-          <form onSubmit={handleCreate} className="space-y-4">
-              {formError && (
-                <div className="rounded-2xl border border-danger/20 bg-danger-light/30 p-3 text-sm font-semibold text-danger">
-                  {formError}
-                </div>
-              )}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-text-primary">Name</label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  placeholder="Customer name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-text-primary">Phone</label>
-                <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  placeholder="Optional phone"
-                />
-              </div>
-              {isAdmin && (
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-text-primary">Credit limit</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={creditLimit}
-                    onChange={(e) => setCreditLimit(e.target.value)}
-                    className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                    placeholder="0.00"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-text-primary">Notes</label>
-                <input
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                  placeholder="Optional notes"
-                />
-              </div>
-              <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
-                <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)} disabled={saving}>
-                  Cancel
-                </Button>
-                <Button type="submit" loading={saving}>
-                  <Plus size={16} /> Add Customer
-                </Button>
-              </div>
-            </form>
-        </Modal>
-      )}
-
-      {showPaymentModal && (
-        <Modal
-          open={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
-          eyebrow="Customers"
-          title="Add Advance Payment"
-          size="md"
-          closeDisabled={savingPayment}
-        >
-          <form onSubmit={handlePayment} className="space-y-4">
-              <select
-                value={paymentCustomerId}
-                onChange={(e) => setPaymentCustomerId(e.target.value)}
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                required
-              >
-                <option value="">Select customer</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>{customer.name}</option>
-                ))}
-              </select>
+            <div>
+              <label className="block text-sm font-semibold text-text-primary mb-2">Phone</label>
               <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="Amount"
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                required
-              />
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-              >
-                <option value="CASH">Cash</option>
-                <option value="MOMO">MoMo</option>
-              </select>
-              {paymentMethod === 'MOMO' && (
-                <input
-                  value={momoReference}
-                  onChange={(e) => setMomoReference(e.target.value)}
-                  placeholder="MoMo reference"
-                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
-                />
-              )}
-              <input
-                value={paymentNote}
-                onChange={(e) => setPaymentNote(e.target.value)}
-                placeholder="Note (optional)"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
                 className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
               />
-              <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
-                <Button type="button" variant="secondary" onClick={() => setShowPaymentModal(false)} disabled={savingPayment}>
-                  Cancel
-                </Button>
-                <Button type="submit" loading={savingPayment}>
-                  Record Payment
-                </Button>
+            </div>
+            {isAdmin && (
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Credit limit</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editCreditLimit}
+                  onChange={(e) => setEditCreditLimit(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                />
               </div>
-            </form>
-        </Modal>
-      )}
+            )}
+            <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
+              <Button type="button" variant="secondary" onClick={() => setEditingCustomer(null)} disabled={savingEdit}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSaveEdit} loading={savingEdit}>
+                Save Changes
+              </Button>
+            </div>
+          </div>
+      </Modal>
+
+      <Modal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        eyebrow="Customers"
+        title="Add New Customer"
+        size="lg"
+        closeDisabled={saving}
+      >
+        <form onSubmit={handleCreate} className="space-y-4">
+            {formError && (
+              <div className="rounded-2xl border border-danger/20 bg-danger-light/30 p-3 text-sm font-semibold text-danger">
+                {formError}
+              </div>
+            )}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-text-primary">Name</label>
+              <input
+                data-autofocus="true"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                placeholder="Customer name"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-text-primary">Phone</label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                placeholder="Optional phone"
+              />
+            </div>
+            {isAdmin && (
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-text-primary">Credit limit</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={creditLimit}
+                  onChange={(e) => setCreditLimit(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                  placeholder="0.00"
+                />
+              </div>
+            )}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-text-primary">Notes</label>
+              <input
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+                placeholder="Optional notes"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
+              <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={saving}>
+                <Plus size={16} /> Add Customer
+              </Button>
+            </div>
+          </form>
+      </Modal>
+
+      <Modal
+        open={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        eyebrow="Customers"
+        title="Add Advance Payment"
+        size="md"
+        closeDisabled={savingPayment}
+      >
+        <form onSubmit={handlePayment} className="space-y-4">
+            <select
+              value={paymentCustomerId}
+              onChange={(e) => setPaymentCustomerId(e.target.value)}
+              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+              required
+            >
+              <option value="">Select customer</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>{customer.name}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
+              placeholder="Amount"
+              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+              required
+            />
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+            >
+              <option value="CASH">Cash</option>
+              <option value="MOMO">MoMo</option>
+            </select>
+            {paymentMethod === 'MOMO' && (
+              <input
+                value={momoReference}
+                onChange={(e) => setMomoReference(e.target.value)}
+                placeholder="MoMo reference"
+                className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+              />
+            )}
+            <input
+              value={paymentNote}
+              onChange={(e) => setPaymentNote(e.target.value)}
+              placeholder="Note (optional)"
+              className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue-light"
+            />
+            <div className="flex items-center justify-end gap-3 border-t border-border pt-5">
+              <Button type="button" variant="secondary" onClick={() => setShowPaymentModal(false)} disabled={savingPayment}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={savingPayment}>
+                Record Payment
+              </Button>
+            </div>
+          </form>
+      </Modal>
     </div>
   )
 }

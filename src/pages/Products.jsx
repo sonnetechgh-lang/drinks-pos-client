@@ -584,6 +584,7 @@ export default function ProductsPage() {
                   <input
                     type="text"
                     required
+                    data-autofocus="true"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g. Club Beer"

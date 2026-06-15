@@ -26,7 +26,11 @@ export default function Modal({
 
   React.useEffect(() => {
     if (!open) return undefined
-    previousFocusRef.current = document.activeElement
+    
+    // Only capture previous focus if we're not already open
+    if (!previousFocusRef.current) {
+      previousFocusRef.current = document.activeElement
+    }
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape' && !closeDisabled) {
@@ -62,21 +66,36 @@ export default function Modal({
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
+      // Only return focus if we are actually closing (open becomes false)
+      // or if the component is being completely unmounted while open
       if (previousFocusRef.current instanceof HTMLElement) {
-        previousFocusRef.current.focus()
+        const lastFocus = previousFocusRef.current
+        // Use a microtask to ensure we don't focus something that's about to be unmounted
+        window.queueMicrotask(() => {
+          if (document.body.contains(lastFocus)) {
+            lastFocus.focus()
+          }
+        })
       }
     }
   }, [closeDisabled, onClose, open])
 
   // Separate effect for initial focus to avoid yanking focus on prop updates
+  const hasFocusedRef = React.useRef(false)
   React.useEffect(() => {
-    if (open) {
+    if (open && !hasFocusedRef.current) {
       window.requestAnimationFrame(() => {
+        // Look for data-autofocus first, then fall back to first focusable
+        const autoFocusElement = panelRef.current?.querySelector('[data-autofocus="true"]')
         const firstFocusable = panelRef.current?.querySelector(
           'button:not([disabled]), a[href], textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
         )
-        ;(firstFocusable || panelRef.current)?.focus()
+        ;(autoFocusElement || firstFocusable || panelRef.current)?.focus()
+        hasFocusedRef.current = true
       })
+    } else if (!open) {
+      hasFocusedRef.current = false
+      previousFocusRef.current = null
     }
   }, [open])
 

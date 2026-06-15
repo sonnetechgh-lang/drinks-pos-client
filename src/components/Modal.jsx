@@ -23,18 +23,26 @@ export default function Modal({
   const titleId = React.useId()
   const panelRef = React.useRef(null)
   const previousFocusRef = React.useRef(null)
+  const onCloseRef = React.useRef(onClose)
+  const closeDisabledRef = React.useRef(closeDisabled)
 
+  // Keep refs in sync with props
+  React.useEffect(() => {
+    onCloseRef.current = onClose
+    closeDisabledRef.current = closeDisabled
+  }, [onClose, closeDisabled])
+
+  // Effect for capturing previous focus and handling keyboard listeners
   React.useEffect(() => {
     if (!open) return undefined
     
-    // Only capture previous focus if we're not already open
     if (!previousFocusRef.current) {
       previousFocusRef.current = document.activeElement
     }
 
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && !closeDisabled) {
-        onClose?.()
+      if (event.key === 'Escape' && !closeDisabledRef.current) {
+        onCloseRef.current?.()
         return
       }
 
@@ -66,26 +74,14 @@ export default function Modal({
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      // Only return focus if we are actually closing (open becomes false)
-      // or if the component is being completely unmounted while open
-      if (previousFocusRef.current instanceof HTMLElement) {
-        const lastFocus = previousFocusRef.current
-        // Use a microtask to ensure we don't focus something that's about to be unmounted
-        window.queueMicrotask(() => {
-          if (document.body.contains(lastFocus)) {
-            lastFocus.focus()
-          }
-        })
-      }
     }
-  }, [closeDisabled, onClose, open])
+  }, [open])
 
-  // Separate effect for initial focus to avoid yanking focus on prop updates
+  // Effect for initial focus when opening
   const hasFocusedRef = React.useRef(false)
   React.useEffect(() => {
     if (open && !hasFocusedRef.current) {
       window.requestAnimationFrame(() => {
-        // Look for data-autofocus first, then fall back to first focusable
         const autoFocusElement = panelRef.current?.querySelector('[data-autofocus="true"]')
         const firstFocusable = panelRef.current?.querySelector(
           'button:not([disabled]), a[href], textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -95,8 +91,24 @@ export default function Modal({
       })
     } else if (!open) {
       hasFocusedRef.current = false
+    }
+  }, [open])
+
+  // Effect for returning focus when closing
+  const wasOpenRef = React.useRef(open)
+  React.useEffect(() => {
+    if (wasOpenRef.current && !open) {
+      const lastFocus = previousFocusRef.current
+      if (lastFocus instanceof HTMLElement) {
+        window.queueMicrotask(() => {
+          if (document.body.contains(lastFocus)) {
+            lastFocus.focus()
+          }
+        })
+      }
       previousFocusRef.current = null
     }
+    wasOpenRef.current = open
   }, [open])
 
   if (!open) return null

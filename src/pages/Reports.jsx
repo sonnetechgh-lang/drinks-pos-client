@@ -8,6 +8,25 @@ import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import ErrorBanner from '../components/ErrorBanner'
 import { getReceiptHtml, printReceipt } from '../utils/receiptGenerator'
 
+const SALES_REPORT_PAGE_SIZE = 50
+
+const normalizeSalesReport = (result) => {
+  const data = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : []
+  const pageRevenue = data.reduce((sum, sale) => sum + Number(sale.total || 0), 0)
+
+  return {
+    data,
+    total: Number(result?.total ?? data.length),
+    totalRevenue: Number(result?.totalRevenue ?? pageRevenue),
+  }
+}
+
+const mapSalesForExport = (sales) => sales.map(s => ({
+  ...s,
+  dateStr: new Date(s.createdAt).toLocaleString(),
+  customerName: s.customer?.name || 'Cash Sale'
+}))
+
 export default function Reports() {
   const [reportType, setReportType] = useState('sales')
   const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0])
@@ -26,11 +45,11 @@ export default function Reports() {
     if (!silent) setLoading(true)
     try {
       if (reportType === 'sales') {
-        const result = await getSalesReport(startDate, endDate, paymentStatus || undefined)
-        setSalesData(Array.isArray(result) ? result : [])
-        setTotalSales(result?.length || 0)
-        const revenue = (Array.isArray(result) ? result : []).reduce((sum, sale) => sum + Number(sale.total || 0), 0)
-        setTotalRevenue(revenue)
+        const result = await getSalesReport(startDate, endDate, paymentStatus || undefined, SALES_REPORT_PAGE_SIZE)
+        const report = normalizeSalesReport(result)
+        setSalesData(report.data)
+        setTotalSales(report.total)
+        setTotalRevenue(report.totalRevenue)
       } else if (reportType === 'best-selling') {
         const result = await getBestSellingProducts(20)
         setBestSellingData(Array.isArray(result) ? result : [])
@@ -55,10 +74,23 @@ export default function Reports() {
     }
   }
 
+  const fetchAllFilteredSales = async () => {
+    const firstResult = await getSalesReport(startDate, endDate, paymentStatus || undefined, SALES_REPORT_PAGE_SIZE)
+    const firstReport = normalizeSalesReport(firstResult)
+
+    if (firstReport.total <= firstReport.data.length) {
+      return firstReport.data
+    }
+
+    const fullResult = await getSalesReport(startDate, endDate, paymentStatus || undefined, firstReport.total)
+    return normalizeSalesReport(fullResult).data
+  }
+
   const handleExportExcel = async () => {
-    let headers = []
-    let data = []
-    let fileName = `Report_${reportType}_${new Date().toISOString().split('T')[0]}`
+    try {
+      let headers = []
+      let data = []
+      let fileName = `Report_${reportType}_${new Date().toISOString().split('T')[0]}`
 
     if (reportType === 'sales') {
       headers = [
@@ -68,11 +100,7 @@ export default function Reports() {
         { key: 'total', label: 'Total (GH₵)' },
         { key: 'paymentStatus', label: 'Status' }
       ]
-      data = salesData.map(s => ({
-        ...s,
-        dateStr: new Date(s.createdAt).toLocaleString(),
-        customerName: s.customer?.name || 'Cash Sale'
-      }))
+      data = mapSalesForExport(await fetchAllFilteredSales())
     } else if (reportType === 'best-selling') {
       headers = [
         { key: 'rank', label: 'Rank' },
@@ -90,18 +118,19 @@ export default function Reports() {
       data = lowStockData.map(p => ({ ...p, categoryName: p.category?.name || 'N/A' }))
     }
 
-    try {
       await exportToExcel(data, fileName, headers)
-    } catch {
+    } catch (error) {
+      console.error('Excel export failed', error)
       alert('Excel export failed')
     }
   }
 
   const handleExportPDF = async () => {
-    let headers = []
-    let data = []
-    let title = 'Report'
-    let fileName = `Report_${reportType}_${new Date().toISOString().split('T')[0]}`
+    try {
+      let headers = []
+      let data = []
+      let title = 'Report'
+      let fileName = `Report_${reportType}_${new Date().toISOString().split('T')[0]}`
 
     if (reportType === 'sales') {
       title = 'Sales Transactions Report'
@@ -112,11 +141,7 @@ export default function Reports() {
         { key: 'total', label: 'Total', formatter: (v) => Number(v).toFixed(2) },
         { key: 'paymentStatus', label: 'Status' }
       ]
-      data = salesData.map(s => ({
-        ...s,
-        dateStr: new Date(s.createdAt).toLocaleString(),
-        customerName: s.customer?.name || 'Cash Sale'
-      }))
+      data = mapSalesForExport(await fetchAllFilteredSales())
     } else if (reportType === 'best-selling') {
       title = 'Best Selling Products Report'
       headers = [
@@ -136,9 +161,9 @@ export default function Reports() {
       data = lowStockData.map(p => ({ ...p, categoryName: p.category?.name || 'N/A' }))
     }
 
-    try {
       await exportToPDF(data, fileName, title, headers)
-    } catch {
+    } catch (error) {
+      console.error('PDF export failed', error)
       alert('PDF export failed')
     }
   }
@@ -268,9 +293,16 @@ export default function Reports() {
       {/* Data Table */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-text-primary">
-            {reportType === 'sales' ? 'Sales Transactions' : reportType === 'best-selling' ? 'Best Selling Products' : 'Low Stock Items'}
-          </h2>
+          <div>
+            <h2 className="text-lg font-bold text-text-primary">
+              {reportType === 'sales' ? 'Sales Transactions' : reportType === 'best-selling' ? 'Best Selling Products' : 'Low Stock Items'}
+            </h2>
+            {reportType === 'sales' && (
+              <p className="mt-1 text-xs text-text-secondary">
+                Showing {salesData.length} of {totalSales} matching transactions. Totals and exports include all matches.
+              </p>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={handleExportPDF}

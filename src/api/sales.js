@@ -49,5 +49,5 @@ export const getSalesReport = async (startDate, endDate, paymentStatus, limit = 
       offset,
     }
   })
-  return response.data.data
+  return response.data
 }

@@ -283,11 +283,11 @@ const statTones = {
     icon: 'bg-white/20 text-white',
   },
   amber: {
-    card: 'border-transparent bg-[#1A97F0]',
+    card: 'border-transparent bg-[#F00A21]',
     icon: 'bg-white/20 text-white',
   },
   green: {
-    card: 'border-transparent bg-[#F00A21]',
+    card: 'border-transparent bg-[#0EB04F]',
     icon: 'bg-white/20 text-white',
   },
   red: {

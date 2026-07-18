@@ -279,20 +279,20 @@ export default function Dashboard() {
 
 const statTones = {
   blue: {
-    card: 'border-brand-blue/20 bg-brand-blue-light/45',
-    icon: 'bg-white text-brand-blue',
+    card: 'border-transparent bg-[#0B93F4]',
+    icon: 'bg-white/20 text-white',
   },
   amber: {
-    card: 'border-warning/25 bg-warning-light/60',
-    icon: 'bg-white text-warning',
+    card: 'border-transparent bg-[#F00A21]',
+    icon: 'bg-white/20 text-white',
   },
   green: {
-    card: 'border-success/25 bg-success-light/60',
-    icon: 'bg-white text-success',
+    card: 'border-transparent bg-[#0EB04F]',
+    icon: 'bg-white/20 text-white',
   },
   red: {
-    card: 'border-danger/25 bg-danger-light/55',
-    icon: 'bg-white text-danger',
+    card: 'border-transparent bg-[#B0210E]',
+    icon: 'bg-white/20 text-white',
   },
 }
 
@@ -300,10 +300,10 @@ function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
   const color = statTones[tone] || statTones.blue
 
   return (
-    <div className={`flex flex-col justify-between gap-3 rounded-3xl border p-4 shadow-sm sm:flex-row sm:items-start sm:gap-0 sm:p-6 ${color.card}`}>
+    <div className={`flex flex-col justify-between gap-3 rounded-3xl border p-4 shadow-sm sm:flex-row sm:items-start sm:gap-0 sm:p-6 text-white ${color.card}`}>
       <div className="flex-1 min-w-0 text-left">
-        <p className="text-[10px] sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-text-secondary truncate">{label}</p>
-        <p className="mt-1 sm:mt-4 text-lg sm:text-2xl font-black text-text-primary truncate">{value}</p>
+        <p className="text-[10px] sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-white/80 truncate">{label}</p>
+        <p className="mt-1 sm:mt-4 text-lg sm:text-2xl font-black text-white truncate">{value}</p>
       </div>
       <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl shrink-0 self-end sm:self-auto shadow-sm ${color.icon}`}>
         <Icon size={20} className="sm:w-6 sm:h-6" />

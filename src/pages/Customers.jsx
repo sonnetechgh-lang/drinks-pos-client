@@ -1,15 +1,40 @@
 import { useState } from 'react'
-import { Banknote, Ban, Pencil, Plus, Search, UserCheck, X } from 'lucide-react'
-import { getCustomers, createCustomer, updateCustomer } from '../api/customers'
+import { Banknote, Ban, FileText, Pencil, Plus, Search, Table, UserCheck, X } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { getCustomers, createCustomer, updateCustomer, getCustomerLedger } from '../api/customers'
 import { addCustomerPaymentToQueue } from '../db/syncQueue'
 import { db } from '../db/dexie'
 import { useAuth } from '../hooks/useAuth'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
+import { exportToExcel, exportToPDF } from '../utils/exportUtils'
+import { formatPaymentMethod, formatPaymentMethods } from '../utils/paymentUtils'
 import ErrorBanner from '../components/ErrorBanner'
 import StatusPopup from '../components/StatusPopup'
 
+const formatMoney = (value) => `GH₵ ${Number(value || 0).toFixed(2)}`
+const getCustomerBalance = (customer) => Number(customer?.currentBalance ?? customer?.balance ?? 0) || 0
+const getCustomerDebt = (customer) => Number(customer?.outstandingBalance ?? Math.max(0, -getCustomerBalance(customer))) || 0
+const formatLedgerType = (type) => String(type || '')
+  .replace(/_/g, ' ')
+  .toLowerCase()
+  .replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+const getLedgerPaymentMethods = (entry) => {
+  if (entry.sale) return formatPaymentMethods(entry.sale)
+  if (entry.payment) return formatPaymentMethod(entry.payment.method)
+  return 'Not recorded'
+}
+
+const getLedgerDescription = (entry) => {
+  if (entry.sale) return `Sale ${entry.sale.clientId || entry.sale.id}`
+  if (entry.payment) return `Payment ${entry.payment.clientId || entry.payment.id}`
+  return entry.note || formatLedgerType(entry.type)
+}
+
 export default function CustomersPage() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const customerFilter = searchParams.get('filter')
   const [customers, setCustomers] = useState([])
   const [search, setSearch] = useState('')
   const [name, setName] = useState('')
@@ -34,6 +59,13 @@ export default function CustomersPage() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [ledgerEntries, setLedgerEntries] = useState([])
+  const [ledgerLoading, setLedgerLoading] = useState(false)
+  const [ledgerError, setLedgerError] = useState('')
+
+  const displayCustomers = customers.filter((customer) => (
+    customerFilter !== 'debtors' || getCustomerDebt(customer) > 0
+  ))
 
   const loadCustomers = async (query = '', { silent = false } = {}) => {
     if (!silent) setLoading(true)
@@ -113,6 +145,7 @@ export default function CustomersPage() {
       setMomoReference('')
       setPaymentNote('')
       setShowPaymentModal(false)
+      loadCustomers(search, { silent: true })
       setStatusMessage({ type: 'success', text: 'Customer payment recorded successfully.' })
     } catch (err) {
       setStatusMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Failed to record payment.' })
@@ -121,11 +154,26 @@ export default function CustomersPage() {
     }
   }
 
-  const handleEditClick = (customer) => {
+  const handleEditClick = async (customer) => {
     setEditingCustomer(customer)
     setEditName(customer.name)
     setEditPhone(customer.phone || '')
     setEditCreditLimit(customer.creditLimit != null ? String(customer.creditLimit) : '')
+    setLedgerEntries([])
+    setLedgerError('')
+    setLedgerLoading(true)
+
+    try {
+      const ledger = await getCustomerLedger(customer.id)
+      const nextCustomer = ledger?.customer ? { ...customer, ...ledger.customer } : customer
+      setEditingCustomer(nextCustomer)
+      setCustomers((prev) => prev.map((item) => (item.id === nextCustomer.id ? { ...item, ...nextCustomer } : item)))
+      setLedgerEntries(Array.isArray(ledger?.entries) ? ledger.entries : Array.isArray(ledger) ? ledger : [])
+    } catch (err) {
+      setLedgerError(err.response?.data?.message || err.message || 'Failed to load customer ledger.')
+    } finally {
+      setLedgerLoading(false)
+    }
   }
 
   const handleSaveEdit = async () => {
@@ -139,7 +187,7 @@ export default function CustomersPage() {
         creditLimit: Number(editCreditLimit) || 0,
       })
       setCustomers((prev) => prev.map((customer) => (customer.id === updated.id ? { ...customer, ...updated } : customer)))
-      setEditingCustomer(null)
+      setEditingCustomer((prev) => (prev ? { ...prev, ...updated } : updated))
       setStatusMessage({ type: 'success', text: `Customer ${updated.name} updated successfully.` })
     } catch (err) {
       console.error(err)
@@ -158,6 +206,46 @@ export default function CustomersPage() {
       console.error(err)
       setStatusMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Failed to update status.' })
     }
+  }
+
+  const mapLedgerForExport = () => ledgerEntries.map((entry) => ({
+    date: new Date(entry.createdAt).toLocaleString(),
+    type: formatLedgerType(entry.type),
+    description: getLedgerDescription(entry),
+    amount: Number(entry.amount || 0),
+    saleTotal: entry.sale ? Number(entry.sale.total || 0) : '',
+    paymentMethods: getLedgerPaymentMethods(entry),
+    note: entry.note || entry.payment?.note || '',
+  }))
+
+  const handleExportLedgerExcel = async () => {
+    if (!editingCustomer) return
+    await exportToExcel(mapLedgerForExport(), `Customer_Ledger_${editingCustomer.name}`, [
+      { key: 'date', label: 'Date' },
+      { key: 'type', label: 'Type' },
+      { key: 'description', label: 'Transaction' },
+      { key: 'amount', label: 'Amount' },
+      { key: 'saleTotal', label: 'Sale Total' },
+      { key: 'paymentMethods', label: 'Payment Method(s)' },
+      { key: 'note', label: 'Note' },
+    ])
+  }
+
+  const handleExportLedgerPDF = async () => {
+    if (!editingCustomer) return
+    await exportToPDF(
+      mapLedgerForExport(),
+      `Customer_Ledger_${editingCustomer.name}`,
+      `Customer Ledger - ${editingCustomer.name}`,
+      [
+        { key: 'date', label: 'Date' },
+        { key: 'type', label: 'Type' },
+        { key: 'description', label: 'Transaction' },
+        { key: 'amount', label: 'Amount', formatter: (value) => Number(value || 0).toFixed(2) },
+        { key: 'saleTotal', label: 'Sale Total', formatter: (value) => value === '' ? '' : Number(value || 0).toFixed(2) },
+        { key: 'paymentMethods', label: 'Payment Method(s)' },
+      ]
+    )
   }
 
   return (
@@ -195,7 +283,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Saved customers</p>
-                <h2 className="mt-2 text-xl font-black text-text-primary">{customers.length} customers</h2>
+                <h2 className="mt-2 text-xl font-black text-text-primary">{displayCustomers.length} customers</h2>
               </div>
               <div className="relative w-full max-w-sm">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" />
@@ -207,6 +295,18 @@ export default function CustomersPage() {
                 />
               </div>
             </div>
+            {customerFilter === 'debtors' && (
+              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-danger/20 bg-danger-light/30 px-4 py-3 text-sm">
+                <span className="font-semibold text-danger">Showing customers with an outstanding debt only.</span>
+                <button
+                  type="button"
+                  onClick={() => setSearchParams({})}
+                  className="rounded-xl border border-danger/20 bg-white px-3 py-1 text-xs font-bold text-danger transition hover:bg-danger-light"
+                >
+                  Clear filter
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
@@ -227,12 +327,12 @@ export default function CustomersPage() {
                     <tr>
                       <td colSpan="6" className="px-6 py-6 text-center text-text-secondary">Loading customers...</td>
                     </tr>
-                  ) : customers.length === 0 ? (
+                  ) : displayCustomers.length === 0 ? (
                     <tr>
                       <td colSpan="6" className="px-6 py-6 text-center text-text-secondary">No customers recorded yet.</td>
                     </tr>
                   ) : (
-                    customers.map((customer) => (
+                    displayCustomers.map((customer) => (
                       <tr key={customer.id} className="transition-colors hover:bg-slate-50">
                         <td className="px-5 py-4">
                           <div className="truncate font-semibold text-text-primary">{customer.name}</div>
@@ -243,7 +343,7 @@ export default function CustomersPage() {
                           {customer.notes && <div className="mt-1 truncate text-xs text-text-secondary">{customer.notes}</div>}
                         </td>
                         <td className="px-5 py-4 text-right font-semibold text-text-primary">GH₵ {Number(customer.creditLimit || 0).toFixed(2)}</td>
-                        <td className={`px-5 py-4 text-right font-semibold ${Number(customer.balance || 0) >= 0 ? 'text-success' : 'text-danger'}`}>GH₵ {Number(customer.balance || 0).toFixed(2)}</td>
+                        <td className={`px-5 py-4 text-right font-semibold ${getCustomerBalance(customer) >= 0 ? 'text-success' : 'text-danger'}`}>{formatMoney(getCustomerBalance(customer))}</td>
                         <td className="px-5 py-4">
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${customer.active ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`}>
                             {customer.active ? 'Active' : 'Blocked'}
@@ -285,10 +385,10 @@ export default function CustomersPage() {
             <div className="space-y-4 sm:hidden px-4 py-4">
               {loading ? (
                 <div className="rounded-3xl border border-border bg-gray-50 p-6 text-center text-text-secondary">Loading customers...</div>
-              ) : customers.length === 0 ? (
+              ) : displayCustomers.length === 0 ? (
                 <div className="rounded-3xl border border-border bg-gray-50 p-6 text-center text-text-secondary">No customers recorded yet.</div>
               ) : (
-                customers.map((customer) => (
+                displayCustomers.map((customer) => (
                   <div key={customer.id} className="rounded-3xl border border-border bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
@@ -317,7 +417,7 @@ export default function CustomersPage() {
                         </div>
                         <div className="rounded-2xl bg-gray-50 p-3">
                           <p className="text-xs uppercase tracking-[0.18em] text-text-secondary">Balance</p>
-                          <p className="mt-2 font-semibold text-text-primary">GH₵ {Number(customer.balance || 0).toFixed(2)}</p>
+                          <p className={`mt-2 font-semibold ${getCustomerBalance(customer) >= 0 ? 'text-success' : 'text-danger'}`}>{formatMoney(getCustomerBalance(customer))}</p>
                         </div>
                       </div>
                     </div>
@@ -353,7 +453,7 @@ export default function CustomersPage() {
 
       {editingCustomer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8">
             <div className="mb-6 flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">Customers</p>
@@ -367,7 +467,8 @@ export default function CustomersPage() {
                 <X size={20} />
               </button>
             </div>
-            <div className="space-y-4">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-text-primary mb-2">Name</label>
                 <input
@@ -412,6 +513,43 @@ export default function CustomersPage() {
                   Save Changes
                 </button>
               </div>
+              </div>
+
+              <section className="rounded-3xl border border-border bg-slate-50 p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-text-secondary">Customer ledger</p>
+                    <p className={`mt-2 text-lg font-black ${getCustomerBalance(editingCustomer) >= 0 ? 'text-success' : 'text-danger'}`}>Balance: {formatMoney(getCustomerBalance(editingCustomer))}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={handleExportLedgerExcel} disabled={ledgerEntries.length === 0} className="inline-flex items-center gap-1 rounded-xl border border-border bg-white px-3 py-2 text-xs font-bold text-text-primary disabled:cursor-not-allowed disabled:opacity-50"><Table size={14} /> Excel</button>
+                    <button type="button" onClick={handleExportLedgerPDF} disabled={ledgerEntries.length === 0} className="inline-flex items-center gap-1 rounded-xl border border-border bg-white px-3 py-2 text-xs font-bold text-text-primary disabled:cursor-not-allowed disabled:opacity-50"><FileText size={14} /> PDF</button>
+                  </div>
+                </div>
+                {ledgerLoading ? (
+                  <p className="py-8 text-center text-sm text-text-secondary">Loading ledger…</p>
+                ) : ledgerError ? (
+                  <p className="mt-4 rounded-2xl border border-danger/20 bg-danger-light/30 p-3 text-sm font-semibold text-danger">{ledgerError}</p>
+                ) : ledgerEntries.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-text-secondary">No ledger transactions recorded.</p>
+                ) : (
+                  <div className="mt-4 max-h-80 overflow-auto rounded-2xl border border-border bg-white">
+                    <table className="min-w-full text-left text-xs">
+                      <thead className="sticky top-0 bg-slate-50 uppercase text-text-secondary"><tr><th className="px-3 py-2">Date</th><th className="px-3 py-2">Transaction</th><th className="px-3 py-2">Payment</th><th className="px-3 py-2 text-right">Amount</th></tr></thead>
+                      <tbody className="divide-y divide-border">
+                        {ledgerEntries.map((entry) => (
+                          <tr key={entry.id}>
+                            <td className="whitespace-nowrap px-3 py-3 text-text-secondary">{new Date(entry.createdAt).toLocaleString()}</td>
+                            <td className="px-3 py-3"><p className="font-semibold text-text-primary">{getLedgerDescription(entry)}</p><p className="mt-1 text-text-secondary">{formatLedgerType(entry.type)}</p></td>
+                            <td className="px-3 py-3 text-text-secondary">{getLedgerPaymentMethods(entry)}</td>
+                            <td className={`whitespace-nowrap px-3 py-3 text-right font-bold ${entry.type === 'SALE_DEBIT' ? 'text-danger' : 'text-success'}`}>{formatMoney(entry.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
             </div>
           </div>
         </div>

@@ -10,6 +10,8 @@ import { getReceiptHtml, printReceipt } from '../utils/receiptGenerator'
 import StatusPopup from '../components/StatusPopup'
 import { ShoppingCart, Search, Trash2, Plus, Minus, Printer, Wifi, WifiOff, X } from 'lucide-react'
 
+const paymentOptionText = 'Cash, Mobile Money, Credit, Advance Balance'
+
 export default function Home() {
   const { user } = useAuth()
   const [search, setSearch] = useState('')
@@ -33,9 +35,14 @@ export default function Home() {
   const [pendingSale, setPendingSale] = useState(null)
 
   const liveProducts = useLiveQuery(() => db.products.toArray())
-  const liveCustomers = useLiveQuery(() => db.customers.where('active').notEqual(0).toArray())
+  const liveCustomers = useLiveQuery(() => db.customers.toArray())
   const products = useMemo(() => liveProducts || [], [liveProducts])
-  const customers = useMemo(() => liveCustomers || [], [liveCustomers])
+  const customers = useMemo(() => (liveCustomers || [])
+    .filter((customer) => customer.active !== false && customer.active !== 0)
+    .map((customer) => {
+      const balance = Number(customer.currentBalance ?? customer.balance ?? 0)
+      return { ...customer, currentBalance: balance, balance }
+    }), [liveCustomers])
 
   const refreshRemoteData = async () => {
     try {
@@ -79,6 +86,10 @@ export default function Home() {
     const parsed = Number(value)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
   }
+
+  const getCustomerBalance = (customer) => Number(customer?.currentBalance ?? customer?.balance ?? 0) || 0
+  const getCustomerDebt = (customer) => Math.max(0, -getCustomerBalance(customer))
+  const getCustomerAdvance = (customer) => Math.max(0, getCustomerBalance(customer))
 
   const getLineUnitPrice = (item) => {
     const wholesalePrice = Number(item.wholesalePrice)
@@ -242,6 +253,7 @@ export default function Home() {
 
   const buildSale = () => {
     const paid = parseAmount(paidAmount)
+    const previousDebt = selectedCustomer ? getCustomerDebt(selectedCustomer) : 0
     const paymentLines = []
     if (paid > 0) {
       paymentLines.push({ method: paymentMethod, amount: paid, momoReference: paymentMethod === 'MOMO' ? momoReference.trim() : undefined })
@@ -252,13 +264,19 @@ export default function Home() {
     }
 
     const paymentStatus = paymentType === 'FULL' ? 'PAID' : paid > 0 ? 'PARTIAL' : 'CREDIT'
+    const balanceDue = previousDebt + creditAmount
 
     return {
       clientId: crypto.randomUUID(),
       total: cartTotal,
+      currentPurchaseTotal: cartTotal,
       discount: parseAmount(discount),
       amountPaid: paid,
       creditAmount,
+      previousDebt,
+      balanceDue,
+      customerBalanceBefore: selectedCustomer ? getCustomerBalance(selectedCustomer) : 0,
+      customerBalanceAfter: selectedCustomer ? getCustomerBalance(selectedCustomer) - creditAmount : 0,
       paymentStatus,
       customerId: selectedCustomer?.synced === 0 ? undefined : selectedCustomerId || undefined,
       customerClientId: selectedCustomer?.synced === 0 ? selectedCustomer.clientId : undefined,
@@ -302,7 +320,7 @@ export default function Home() {
         alert('Enter the amount to deduct from the advance balance.')
         return
       }
-      if (paid > Number(selectedCustomer?.currentBalance || 0)) {
+      if (paid > getCustomerAdvance(selectedCustomer)) {
         alert('Advance balance is not enough for this payment.')
         return
       }
@@ -644,12 +662,18 @@ export default function Home() {
                           <p className="font-semibold text-text-primary">Selected customer</p>
                           <p className="mt-1">{selectedCustomer.name}</p>
                           <p className="text-xs">{selectedCustomer.phone}</p>
+                          <p className="mt-2 text-xs font-semibold text-text-secondary">Payment options: {paymentOptionText}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-[10px] font-bold uppercase tracking-wider">Balance</p>
-                          <p className={`text-base font-black ${selectedCustomer.currentBalance >= 0 ? 'text-success' : 'text-danger'}`}>
-                            GH₵ {Number(selectedCustomer.currentBalance || 0).toFixed(2)}
+                          <p className={`text-base font-black ${getCustomerBalance(selectedCustomer) >= 0 ? 'text-success' : 'text-danger'}`}>
+                            GH₵ {getCustomerBalance(selectedCustomer).toFixed(2)}
                           </p>
+                          {getCustomerDebt(selectedCustomer) > 0 && (
+                            <p className="mt-1 text-xs font-semibold text-danger">
+                              Debt: GH₵ {getCustomerDebt(selectedCustomer).toFixed(2)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -670,6 +694,9 @@ export default function Home() {
                   <option value="MOMO">Mobile Money</option>
                   <option value="ADVANCE_BALANCE">Advance Balance (Wallet)</option>
                 </select>
+                <p className="text-xs font-semibold text-text-secondary">
+                  Available payment options: {paymentOptionText}
+                </p>
 
                 <label className="block text-sm">
                   <span className="mb-1 block text-xs font-semibold text-text-secondary">Amount Paid</span>

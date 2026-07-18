@@ -16,6 +16,20 @@ const formatMethod = (method) => String(method || '')
   .toLowerCase()
   .replace(/\b\w/g, (letter) => letter.toUpperCase())
 
+const getPaymentLines = (sale) => {
+  const lines = Array.isArray(sale.paymentLines) && sale.paymentLines.length > 0
+    ? sale.paymentLines
+    : Array.isArray(sale.payments)
+      ? sale.payments
+      : []
+
+  return lines.map((line) => ({
+    method: line.method,
+    amount: Number(line.amount || 0),
+    momoReference: line.momoReference || line.reference,
+  }))
+}
+
 const getReceiptSettings = () => {
   try {
     const saved = JSON.parse(
@@ -48,6 +62,12 @@ const buildReceiptHtml = (sale, settings) => {
   const date = sale.createdAt ? new Date(sale.createdAt) : new Date()
   const paid = Number(sale.amountPaid || 0)
   const change = Math.max(0, paid - Number(sale.total || 0))
+  const paymentLines = getPaymentLines(sale)
+  const previousDebt = Number(sale.previousDebt || 0)
+  const currentPurchaseTotal = Number(sale.currentPurchaseTotal ?? sale.total ?? 0)
+  const currentCredit = Number(sale.creditAmount || 0)
+  const balanceDue = Number(sale.balanceDue ?? (previousDebt + currentCredit))
+  const showDebtSummary = Boolean(sale.customerName) && (previousDebt > 0 || currentCredit > 0 || balanceDue > 0)
 
   const rows = (sale.items || []).map((item) => {
     const itemName = item.productName || item.name || item.packageName || 'Item'
@@ -68,7 +88,7 @@ const buildReceiptHtml = (sale, settings) => {
     `
   }).join('')
 
-  const payments = (sale.paymentLines || []).map((line) => `
+  const payments = paymentLines.map((line) => `
     <div class="summary-row">
       <span>${escapeHtml(formatMethod(line.method))}</span>
       <span>${formatMoney(line.amount, currency)}</span>
@@ -202,6 +222,7 @@ const buildReceiptHtml = (sale, settings) => {
         <div class="meta-row"><span>Receipt</span><span>${escapeHtml(receiptId)}</span></div>
         ${sale.customerName ? `<div class="meta-row"><span>Customer</span><span>${escapeHtml(sale.customerName)}</span></div>` : ''}
         ${sale.cashierName ? `<div class="meta-row"><span>Cashier</span><span>${escapeHtml(sale.cashierName)}</span></div>` : ''}
+        <div class="meta-row"><span>Payment Status</span><span>${escapeHtml(formatMethod(sale.paymentStatus || 'PAID'))}</span></div>
       </section>
 
       <div class="divider"></div>
@@ -218,9 +239,16 @@ const buildReceiptHtml = (sale, settings) => {
           <div class="summary-row"><span>Discount</span><span>-${formatMoney(sale.discount, currency)}</span></div>
         ` : ''}
         <div class="summary-row total"><span>Total</span><span>${formatMoney(sale.total, currency)}</span></div>
+        <div class="summary-row"><span>Payment Method(s)</span><span>${escapeHtml(paymentLines.length ? paymentLines.map((line) => formatMethod(line.method)).join(', ') : 'Not recorded')}</span></div>
         ${payments}
         ${change > 0 ? `<div class="summary-row"><span>Change</span><span>${formatMoney(change, currency)}</span></div>` : ''}
-        ${Number(sale.creditAmount || 0) > 0 ? `<div class="summary-row"><span>Amount Owed</span><span>${formatMoney(sale.creditAmount, currency)}</span></div>` : ''}
+        ${showDebtSummary ? `
+          <div class="divider"></div>
+          <div class="summary-row"><span>Current Purchase</span><span>${formatMoney(currentPurchaseTotal, currency)}</span></div>
+          <div class="summary-row"><span>Previous Debt</span><span>${formatMoney(previousDebt, currency)}</span></div>
+          <div class="summary-row"><span>Current Credit</span><span>${formatMoney(currentCredit, currency)}</span></div>
+          <div class="summary-row total"><span>Balance Due</span><span>${formatMoney(balanceDue, currency)}</span></div>
+        ` : ''}
       </section>
 
       <div class="divider"></div>

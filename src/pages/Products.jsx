@@ -6,6 +6,7 @@ import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import Skeleton from '../components/Skeleton'
 import ErrorBanner from '../components/ErrorBanner'
 import { db } from '../db/dexie'
+import { useSearchParams } from 'react-router-dom'
 
 const defaultPackageOptions = [{ name: 'Unit', unitsPerBase: 1, price: '', wholesalePrice: '', isDefault: true, active: true }]
 
@@ -23,6 +24,8 @@ const getCachedProducts = async () => {
 }
 
 export default function ProductsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeFilter = searchParams.get('filter')
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -88,9 +91,11 @@ export default function ProductsPage() {
       const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            product.category?.name.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesCategory = selectedCategory === 'All' || product.category?.name === selectedCategory
-      return matchesSearch && matchesCategory
+      const lowStockThreshold = Number(product.lowStockThreshold ?? 5)
+      const matchesStockFilter = activeFilter !== 'low-stock' || Number(product.stock || 0) <= lowStockThreshold
+      return matchesSearch && matchesCategory && matchesStockFilter
     })
-  }, [products, searchTerm, selectedCategory])
+  }, [products, searchTerm, selectedCategory, activeFilter])
 
   const handleOpenModal = (product = null) => {
     if (product) {
@@ -424,6 +429,18 @@ export default function ProductsPage() {
             ))}
           </div>
         </div>
+        {activeFilter === 'low-stock' && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-warning/20 bg-warning-light/30 px-4 py-3 text-sm">
+            <span className="font-semibold text-warning">Showing low stock products only.</span>
+            <button
+              type="button"
+              onClick={() => setSearchParams({})}
+              className="rounded-xl border border-warning/20 bg-white px-3 py-1 text-xs font-bold text-warning transition hover:bg-warning-light"
+            >
+              Clear filter
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Products Table Card */}

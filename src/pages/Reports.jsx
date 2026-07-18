@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { getSalesReport, getBestSellingProducts } from '../api/sales'
 import { getLowStockProducts } from '../api/products'
 import { ChevronRight, Calendar, Eye, FileText, Printer, Table, X } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { exportToExcel, exportToPDF } from '../utils/exportUtils'
 import { useRemoteRefresh } from '../hooks/useRemoteRefresh'
 import ErrorBanner from '../components/ErrorBanner'
 import { getReceiptHtml, printReceipt } from '../utils/receiptGenerator'
+import { formatPaymentMethods, getPaymentLines } from '../utils/paymentUtils'
 
 const SALES_REPORT_PAGE_SIZE = 50
+const toDateInput = (date) => date.toISOString().split('T')[0]
 
 const normalizeSalesReport = (result) => {
   const data = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : []
@@ -24,13 +26,20 @@ const normalizeSalesReport = (result) => {
 const mapSalesForExport = (sales) => sales.map(s => ({
   ...s,
   dateStr: new Date(s.createdAt).toLocaleString(),
-  customerName: s.customer?.name || 'Cash Sale'
+  customerName: s.customer?.name || s.customerName || 'Cash Sale',
+  paymentMethods: formatPaymentMethods(s),
+  previousDebt: Number(s.previousDebt || 0),
+  balanceDue: Number(s.balanceDue || 0),
 }))
 
 export default function Reports() {
-  const [reportType, setReportType] = useState('sales')
-  const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0])
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+  const [searchParams] = useSearchParams()
+  const today = toDateInput(new Date())
+  const defaultStart = toDateInput(new Date(new Date().setDate(new Date().getDate() - 30)))
+  const initialRange = searchParams.get('range')
+  const [reportType, setReportType] = useState(searchParams.get('report') || 'sales')
+  const [startDate, setStartDate] = useState(initialRange === 'today' ? today : defaultStart)
+  const [endDate, setEndDate] = useState(today)
   const [paymentStatus, setPaymentStatus] = useState('')
   const [salesData, setSalesData] = useState([])
   const [bestSellingData, setBestSellingData] = useState([])
@@ -98,6 +107,9 @@ export default function Reports() {
         { key: 'dateStr', label: 'Date' },
         { key: 'customerName', label: 'Customer' },
         { key: 'total', label: 'Total (GH₵)' },
+        { key: 'paymentMethods', label: 'Payment Method(s)' },
+        { key: 'previousDebt', label: 'Previous Debt (GH₵)' },
+        { key: 'balanceDue', label: 'Balance Due (GH₵)' },
         { key: 'paymentStatus', label: 'Status' }
       ]
       data = mapSalesForExport(await fetchAllFilteredSales())
@@ -139,6 +151,9 @@ export default function Reports() {
         { key: 'dateStr', label: 'Date' },
         { key: 'customerName', label: 'Customer' },
         { key: 'total', label: 'Total', formatter: (v) => Number(v).toFixed(2) },
+        { key: 'paymentMethods', label: 'Payment Method(s)' },
+        { key: 'previousDebt', label: 'Previous Debt', formatter: (v) => Number(v).toFixed(2) },
+        { key: 'balanceDue', label: 'Balance Due', formatter: (v) => Number(v).toFixed(2) },
         { key: 'paymentStatus', label: 'Status' }
       ]
       data = mapSalesForExport(await fetchAllFilteredSales())
@@ -173,6 +188,8 @@ export default function Reports() {
     customerName: sale.customer?.name || sale.customerName,
     customerPhone: sale.customer?.phone || sale.customerPhone,
     cashierName: sale.cashier?.name || sale.cashierName,
+    currentPurchaseTotal: sale.currentPurchaseTotal ?? sale.total,
+    paymentLines: getPaymentLines(sale),
     items: (sale.items || []).map((item) => ({
       ...item,
       productName: item.product?.name || item.productName || item.name,
@@ -332,6 +349,7 @@ export default function Reports() {
                   <th className="px-4 py-3 text-left font-semibold text-text-secondary">Date & Time</th>
                   <th className="px-4 py-3 text-left font-semibold text-text-secondary">Customer</th>
                   <th className="px-4 py-3 text-right font-semibold text-text-secondary">Total</th>
+                  <th className="px-4 py-3 text-left font-semibold text-text-secondary">Payment Method(s)</th>
                   <th className="px-4 py-3 text-center font-semibold text-text-secondary">Status</th>
                   <th className="px-4 py-3 text-right font-semibold text-text-secondary">Receipt</th>
                 </tr>
@@ -344,6 +362,7 @@ export default function Reports() {
                       <td className="px-4 py-3">{new Date(sale.createdAt).toLocaleString()}</td>
                       <td className="px-4 py-3">{sale.customer?.name || 'Cash Sale'}</td>
                       <td className="px-4 py-3 text-right font-semibold">GH₵ {Number(sale.total || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-xs text-text-secondary">{formatPaymentMethods(sale)}</td>
                       <td className="px-4 py-3 text-center">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -370,7 +389,7 @@ export default function Reports() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-text-secondary">
+                    <td colSpan="7" className="px-4 py-8 text-center text-text-secondary">
                       No sales data found
                     </td>
                   </tr>

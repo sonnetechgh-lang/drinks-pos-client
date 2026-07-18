@@ -1,6 +1,7 @@
 import { db } from './dexie'
 import client from '../api/client'
 import { getProducts } from '../api/products'
+import { getCustomers } from '../api/customers'
 
 let activeFlush = null
 
@@ -125,6 +126,14 @@ const resolveCustomerIds = async (records, idMap) => {
   }))
 }
 
+const refreshCustomers = async () => {
+  try {
+    await getCustomers()
+  } catch (err) {
+    console.warn('Failed to refresh customers after sync:', err.message)
+  }
+}
+
 /**
  * Pushes all unsynced customers, payments, and sales to the server.
  */
@@ -144,6 +153,7 @@ const runFlushQueue = async () => {
         const response = await client.post('/v1/customer-payments/sync', { payments })
         if (response.data.success) {
           await db.syncQueue.where('id').anyOf(payments.map((p) => p.id)).delete()
+          await refreshCustomers()
         }
       } catch (err) {
         await db.syncQueue.where('id').anyOf(payments.map((p) => p.id)).modify((p) => {
@@ -170,6 +180,7 @@ const runFlushQueue = async () => {
           } catch (pErr) {
             console.warn('Failed to refresh products after sales sync:', pErr.message)
           }
+          await refreshCustomers()
         }
       } catch (err) {
         await db.syncQueue.where('id').anyOf(sales.map((s) => s.id)).modify((s) => {
